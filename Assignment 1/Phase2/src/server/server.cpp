@@ -42,6 +42,9 @@ void Server::startServer(){
         stopServer();
         throw std::runtime_error(std::strerror(errno));
     }
+
+    dh_params = DHE::getNewDHParameters();
+    dh_keypair = DHE::getNewKeyPair(dh_params);
 }
 
 void Server::stopServer(){

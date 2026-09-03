@@ -8,6 +8,7 @@
 #include <string>
 #include "chat/message.hpp"
 #include "user_registry.hpp"
+#include "crypto/dhe.hpp"
 
 class Server{
     const static int MAX_EVENTS = 1024;
@@ -20,6 +21,9 @@ class Server{
     std::vector<pollfd> fds;
     UserRegistry users;
 
+    DHE::DHParameters dh_params;
+    DHE::DHKeyPair dh_keypair;
+    
 public:
     Server(int _port_no): PORT_NO(_port_no) {}
     ~Server();
