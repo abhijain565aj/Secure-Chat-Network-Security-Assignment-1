@@ -230,3 +230,28 @@ DHE::DHParameters::~DHParameters()
     BN_free(p);
     BN_free(g);
 }
+
+DHE::DHParameters DHE::getNewDHParameters(){
+    DHParameters params;
+
+    params.p = getPrime();
+
+    if (!params.p) {
+        throw std::runtime_error("Failed to get DH prime");
+    }
+
+    params.g = BN_new();
+
+    if (!params.g) {
+        BN_free(params.p);
+        throw std::runtime_error("BN_new failed for g");
+    }
+
+    if (BN_set_word(params.g, 2) != 1) {
+        BN_free(params.p);
+        BN_free(params.g);
+        throw std::runtime_error("Failed to set g to 2");
+    }
+
+    return params;
+}

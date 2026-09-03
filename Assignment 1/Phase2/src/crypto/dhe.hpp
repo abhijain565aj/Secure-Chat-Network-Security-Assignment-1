@@ -51,6 +51,8 @@ struct DHParameters {
     ~DHParameters();
 };
 
+DHParameters getNewDHParameters();
+
 } //namespace DHE
 
 #endif
