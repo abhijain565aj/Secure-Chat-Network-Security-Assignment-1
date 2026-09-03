@@ -26,6 +26,7 @@ struct DHParameters {
     DHParameters();
     ~DHParameters();
 
+    DHParameters(BIGNUM* _p, BIGNUM* _g) : p(_p), g(_g) {}
     DHParameters(const DHParameters&);
     DHParameters& operator=(const DHParameters&);
 };
@@ -49,6 +50,7 @@ struct DHKey {
     DHKey();
     ~DHKey();
 
+    DHKey(BIGNUM* _public_key) : public_key(_public_key) {}
     DHKey(const DHKey&);
     DHKey& operator=(const DHKey&);
 };
