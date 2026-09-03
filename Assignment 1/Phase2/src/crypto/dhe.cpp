@@ -291,17 +291,17 @@ DHE::DHParameters::DHParameters(const DHParameters& other) : p(BN_dup(other.p)),
 
 DHE::DHParameters& DHE::DHParameters::operator=(const DHParameters& other){
     if(this != &other){
-        BIGNUM* new_p = BN_dup(other.g);
-        BIGNUM* new_public_key = BN_dup(other.p);
-        if (!new_p || !new_public_key) {
+        BIGNUM* new_p = BN_dup(other.p);
+        BIGNUM* new_g = BN_dup(other.g);
+        if (!new_p || !new_g) {
             BN_free(new_p);
-            BN_free(new_public_key);
+            BN_free(new_g);
             throw std::runtime_error("Failed to copy DHParameters");
         }
         BN_free(p);
         BN_free(g);
         p = new_p;
-        g = new_public_key;
+        g = new_g;
     }
     return *this;
 }
