@@ -3,8 +3,10 @@
 
 #include <string>
 #include <cstdint>
+#include <memory>
 #include "utils/helpers.hpp"
-#include "utils/password.hpp"
+
+class PacketBuffer;
 
 enum class MessageType : uint8_t {
     User = 1,
@@ -19,6 +21,7 @@ public:
     Message();
     virtual ~Message() = default;
     virtual MessageType type() const = 0;
+    virtual void serialize(PacketBuffer& packet) const = 0;
 };
 
 class UserMessage : public Message{
@@ -29,6 +32,8 @@ public:
     UserMessage(std::string _username, std::string _msg);
     UserMessage(std::string _sender, std::string _username, std::string _msg);
     MessageType type() const override { return MessageType::User; }
+    void serialize(PacketBuffer& packet) const override;
+    static std::unique_ptr<Message> deserialize(PacketBuffer& packet);
     const std::string& get_sender() const { return sender; }
     const std::string& get_username() const { return username; }
     const std::string& get_message() const { return msg; }
@@ -36,10 +41,11 @@ public:
 
 class LoginMessage : public Message{
     std::string username;
-    std::string password; // FUTURE TODO
 public:
     LoginMessage(std::string _username);
     MessageType type() const override { return MessageType::Login; }
+    void serialize(PacketBuffer& packet) const override;
+    static std::unique_ptr<Message> deserialize(PacketBuffer& packet);
     const std::string& get_username() const { return username; }
 };
 
@@ -47,6 +53,8 @@ class WhoMessage : public Message{
 public:
     WhoMessage();
     MessageType type() const override { return MessageType::Who; }
+    void serialize(PacketBuffer& packet) const override;
+    static std::unique_ptr<Message> deserialize(PacketBuffer& packet);
 };
 
 class ServerMessage : public Message{
@@ -54,6 +62,8 @@ class ServerMessage : public Message{
 public:
     explicit ServerMessage(std::string text);
     MessageType type() const override { return MessageType::Server; }
+    void serialize(PacketBuffer& packet) const override;
+    static std::unique_ptr<Message> deserialize(PacketBuffer& packet);
     const std::string& get_text() const { return text; }
 };
 
