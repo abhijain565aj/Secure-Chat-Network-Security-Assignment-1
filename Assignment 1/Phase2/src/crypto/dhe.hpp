@@ -21,42 +21,42 @@ BIGNUM* modularExponentiation(
     const BIGNUM* modulus
 );
 
+struct DHKey {
+    BIGNUM* key;
+
+    DHKey();
+    explicit DHKey(BIGNUM* key);
+    ~DHKey();
+    DHKey(const DHKey&);
+    DHKey(DHKey&& other) noexcept;
+    DHKey& operator=(const DHKey&);
+    DHKey& operator=(DHKey&& other) noexcept;
+
+    BIGNUM* get() const;
+};
+
 struct DHParameters {
-    BIGNUM* p;
-    BIGNUM* g;
+    DHKey p;
+    DHKey g;
 
-    DHParameters();
-    ~DHParameters();
+    DHParameters() = default;
+    DHParameters(DHKey p, DHKey g);
 
-    DHParameters(BIGNUM* _p, BIGNUM* _g) : p(_p), g(_g) {}
-    DHParameters(const DHParameters&);
-    DHParameters& operator=(const DHParameters&);
+    BIGNUM* get_p() const;
+    BIGNUM* get_g() const;
 };
 
 DHParameters getNewDHParameters();
 
 struct DHKeyPair {
-    BIGNUM* private_key;
-    BIGNUM* public_key;
-    
-    DHKeyPair();
-    ~DHKeyPair();
-    
-    DHKeyPair(const DHKeyPair&);
-    DHKeyPair& operator=(const DHKeyPair&);
-};
+    DHKey private_key;
+    DHKey public_key;
 
-struct DHKey {
-    BIGNUM* public_key;
+    DHKeyPair() = default;
+    DHKeyPair(DHKey private_key, DHKey public_key);
 
-    DHKey();
-    ~DHKey();
-
-    DHKey(BIGNUM* _public_key) : public_key(_public_key) {}
-    DHKey(const DHKey&);
-    DHKey(DHKey&& other) noexcept;
-    DHKey& operator=(const DHKey&);
-    DHKey& operator=(DHKey&& other) noexcept;
+    BIGNUM* get_private_key() const;
+    BIGNUM* get_public_key() const;
 };
 
 DHKeyPair getNewKeyPair(const DHParameters& params);

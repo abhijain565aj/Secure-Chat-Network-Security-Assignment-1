@@ -33,32 +33,20 @@ BIGNUM* DHE::getPrime(){
     return p;
 }
 
-DHE::DHKeyPair::DHKeyPair()
-    : private_key(nullptr),
-      public_key(nullptr){
-}
-
-DHE::DHKeyPair::~DHKeyPair()
-{
-    BN_free(private_key);
-    BN_free(public_key);
-}
-
-
 DHE::DHKeyPair DHE::getNewKeyPair(
     const DHParameters& params
 )
 {
     DHKeyPair keypair;
 
-    keypair.private_key = BN_new();
+    keypair.private_key = DHKey(BN_new());
 
-    if (!keypair.private_key) {
+    if (!keypair.private_key.get()) {
         throw std::runtime_error("BN_new failed");
     }
 
     // Generate random private key. We generate a value in [1, p-2].
-    BIGNUM* max = BN_dup(params.p);
+    BIGNUM* max = BN_dup(params.get_p());
 
     if (!max) {
         throw std::runtime_error("BN_dup failed");
@@ -66,22 +54,20 @@ DHE::DHKeyPair DHE::getNewKeyPair(
 
     BN_sub_word(max, 2);
 
-    if (BN_rand_range(keypair.private_key, max) != 1) {
+    if (BN_rand_range(keypair.private_key.get(), max) != 1) {
         BN_free(max);
         throw std::runtime_error("Failed to generate private key");
     }
 
-    BN_add_word(keypair.private_key, 1);
+    BN_add_word(keypair.private_key.get(), 1);
 
     BN_free(max);
 
     // public = g^private mod p
-    keypair.public_key =
-        modularExponentiation(
-            params.g,
-            keypair.private_key,
-            params.p
-        );
+    keypair.public_key = DHKey(modularExponentiation(
+        params.get_g(),
+        keypair.private_key.get(),
+        params.get_p()));
 
     return keypair;
 }
@@ -221,125 +207,65 @@ DHE::AES_KEY DHE::deriveAESKey(
     return aes_key;
 }
 
-DHE::DHParameters::DHParameters() : p(nullptr),
-      g(nullptr){
-}
-
-DHE::DHParameters::~DHParameters()
-{
-    BN_free(p);
-    BN_free(g);
-}
-
 DHE::DHParameters DHE::getNewDHParameters(){
-    DHParameters params;
-
-    params.p = getPrime();
-
-    if (!params.p) {
+    DHKey p(getPrime());
+    if (!p.get()) {
         throw std::runtime_error("Failed to get DH prime");
     }
 
-    params.g = BN_new();
+    DHKey g(BN_new());
 
-    if (!params.g) {
-        BN_free(params.p);
+    if (!g.get()) {
         throw std::runtime_error("BN_new failed for g");
     }
 
-    if (BN_set_word(params.g, 2) != 1) {
-        BN_free(params.p);
-        BN_free(params.g);
+    if (BN_set_word(g.get(), 2) != 1) {
         throw std::runtime_error("Failed to set g to 2");
     }
 
-    return params;
+    return DHParameters(std::move(p), std::move(g));
 }
 
-DHE::DHKeyPair::DHKeyPair(const DHKeyPair& other) : private_key(BN_dup(other.private_key)), public_key(BN_dup(other.public_key)) {
-    if (!private_key || !public_key) {
-        BN_free(private_key);
-        BN_free(public_key);
-        throw std::runtime_error("Failed to copy DHKeyPair");
-    }
-}
+DHE::DHKey::DHKey() : key(nullptr) {}
 
-DHE::DHKeyPair& DHE::DHKeyPair::operator=(const DHKeyPair& other) {
-    if (this != &other) {
-        BIGNUM* new_private_key = BN_dup(other.private_key);
-        BIGNUM* new_public_key = BN_dup(other.public_key);
-        if (!new_private_key || !new_public_key) {
-            BN_free(new_private_key);
-            BN_free(new_public_key);
-            throw std::runtime_error("Failed to copy DHKeyPair");
-        }
-        BN_free(private_key);
-        BN_free(public_key);
-        private_key = new_private_key;
-        public_key = new_public_key;
-    }
-    return *this;
-}
-
-DHE::DHParameters::DHParameters(const DHParameters& other) : p(BN_dup(other.p)), g(BN_dup(other.g)) {
-    if (!p || !g) {
-        BN_free(p);
-        BN_free(g);
-        throw std::runtime_error("Failed to copy DHParameters");
-    }
-}
-
-DHE::DHParameters& DHE::DHParameters::operator=(const DHParameters& other){
-    if(this != &other){
-        BIGNUM* new_p = BN_dup(other.p);
-        BIGNUM* new_g = BN_dup(other.g);
-        if (!new_p || !new_g) {
-            BN_free(new_p);
-            BN_free(new_g);
-            throw std::runtime_error("Failed to copy DHParameters");
-        }
-        BN_free(p);
-        BN_free(g);
-        p = new_p;
-        g = new_g;
-    }
-    return *this;
-}
-
-DHE::DHKey::DHKey() : public_key(nullptr) {
-}
+DHE::DHKey::DHKey(BIGNUM* key) : key(key) {}
 
 DHE::DHKey::~DHKey() {
-    BN_free(public_key);
+    BN_free(key);
 }
 
-DHE::DHKey::DHKey(const DHKey& other) : public_key(BN_dup(other.public_key)) {
-    if (!public_key) {
-        throw std::runtime_error("Failed to copy DHKey");
-    }
-}
+DHE::DHKey::DHKey(const DHKey& other) : key(other.key ? BN_dup(other.key) : nullptr) {}
 
-DHE::DHKey::DHKey(DHKey&& other) noexcept : public_key(other.public_key) {
-    other.public_key = nullptr;
-}
+DHE::DHKey::DHKey(DHKey&& other) noexcept : key(other.key) { other.key = nullptr; }
 
 DHE::DHKey& DHE::DHKey::operator=(const DHKey& other) {
     if (this != &other) {
-        BIGNUM* new_public_key = BN_dup(other.public_key);
-        if (!new_public_key) {
-            throw std::runtime_error("Failed to copy DHKey");
-        }
-        BN_free(public_key);
-        public_key = new_public_key;
+        BIGNUM* new_key = other.key ? BN_dup(other.key) : nullptr;
+        BN_free(key);
+        key = new_key;
     }
     return *this;
 }
 
 DHE::DHKey& DHE::DHKey::operator=(DHKey&& other) noexcept {
     if (this != &other) {
-        BN_free(public_key);
-        public_key = other.public_key;
-        other.public_key = nullptr;
+        BN_free(key);
+        key = other.key;
+        other.key = nullptr;
     }
     return *this;
 }
+
+BIGNUM* DHE::DHKey::get() const { return key; }
+
+DHE::DHParameters::DHParameters(DHKey p, DHKey g)
+    : p(std::move(p)), g(std::move(g)) {}
+
+BIGNUM* DHE::DHParameters::get_p() const { return p.get(); }
+BIGNUM* DHE::DHParameters::get_g() const { return g.get(); }
+
+DHE::DHKeyPair::DHKeyPair(DHKey private_key, DHKey public_key)
+    : private_key(std::move(private_key)), public_key(std::move(public_key)) {}
+
+BIGNUM* DHE::DHKeyPair::get_private_key() const { return private_key.get(); }
+BIGNUM* DHE::DHKeyPair::get_public_key() const { return public_key.get(); }

@@ -62,7 +62,7 @@ std::unique_ptr<Message> ServerMessage::deserialize(PacketBuffer& packet) {
 }
 
 DHParametersMessage::DHParametersMessage(const DHE::DHParameters& params)
-    : Message(), b(DHE::BIGNUMToBytes(params.p)), g(DHE::BIGNUMToBytes(params.g)) {}
+    : Message(), b(DHE::BIGNUMToBytes(params.get_p())), g(DHE::BIGNUMToBytes(params.get_g())) {}
 
 void DHParametersMessage::serialize(PacketBuffer& packet) const {
     packet << b << g;
@@ -71,7 +71,9 @@ void DHParametersMessage::serialize(PacketBuffer& packet) const {
 std::unique_ptr<Message> DHParametersMessage::deserialize(PacketBuffer& packet) {
     std::vector<uint8_t> b, g;
     packet >> b >> g;
-    return std::make_unique<DHParametersMessage>(DHE::DHParameters(DHE::BytesToBIGNUM(b), DHE::BytesToBIGNUM(g)));
+    return std::make_unique<DHParametersMessage>(DHE::DHParameters(
+        DHE::DHKey(DHE::BytesToBIGNUM(b)),
+        DHE::DHKey(DHE::BytesToBIGNUM(g))));
 }
 
 DHKeyMessage::DHKeyMessage(BIGNUM* _public_key)

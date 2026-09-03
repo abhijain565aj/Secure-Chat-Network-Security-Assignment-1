@@ -142,14 +142,15 @@ void Client::handle_recv(){
             auto& dh_params_msg = static_cast<DHParametersMessage&>(*message);
             dh_params = dh_params_msg.get_parameters();
             dh_keypair = DHE::getNewKeyPair(dh_params);
-            DHKeyMessage dh_key_msg(dh_keypair.public_key);
+            DHKeyMessage dh_key_msg(dh_keypair.get_public_key());
             handle_send(dh_key_msg, false);
             break;
         }
         case MessageType::DHKeyMsg:{
             auto& dh_key_msg = static_cast<DHKeyMessage&>(*message);
             server_public_key = dh_key_msg.get_public_key();
-            server_aes_key = DHE::deriveAESKey(dh_keypair.private_key, server_public_key.public_key, dh_params.p);
+            server_aes_key = DHE::deriveAESKey(
+                dh_keypair.get_private_key(), server_public_key.get(), dh_params.get_p());
             break;
         }
         default:

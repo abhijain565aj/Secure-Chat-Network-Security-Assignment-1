@@ -133,7 +133,7 @@ void Server::accept_new_clients(){
     }
     DHParametersMessage dh_params_message(dh_params);
     handle_send(user, dh_params_message, false);
-    DHKeyMessage dh_key_message(dh_keypair.public_key);
+    DHKeyMessage dh_key_message(dh_keypair.get_public_key());
     handle_send(user, dh_key_message, false);
 
     std::cout << Presentation::server_log(
@@ -219,7 +219,8 @@ void Server::close_client(int client_fd){
 void Server::addClientPublicKey(int client_fd, DHE::DHKey public_key) {
     User* user = users.find_by_file_descriptor(client_fd);
     if (user == nullptr) throw std::runtime_error("Unknown client");
-    DHE::AES_KEY aes_key = DHE::deriveAESKey(dh_keypair.private_key, public_key.public_key, dh_params.p);
+    DHE::AES_KEY aes_key = DHE::deriveAESKey(
+        dh_keypair.get_private_key(), public_key.get(), dh_params.get_p());
     user->set_public_key(public_key,aes_key);
 }
 

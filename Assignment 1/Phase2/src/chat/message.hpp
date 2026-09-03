@@ -81,7 +81,11 @@ public:
     MessageType type() const override { return MessageType::DHParametersMsg; }
     void serialize(PacketBuffer& packet) const override;
     static std::unique_ptr<Message> deserialize(PacketBuffer& packet);
-    DHE::DHParameters get_parameters() const { return DHE::DHParameters(DHE::BytesToBIGNUM(b), DHE::BytesToBIGNUM(g)); }
+    DHE::DHParameters get_parameters() const {
+        return DHE::DHParameters(
+            DHE::DHKey(DHE::BytesToBIGNUM(b)),
+            DHE::DHKey(DHE::BytesToBIGNUM(g)));
+    }
 };
 
 class DHKeyMessage : public Message {
