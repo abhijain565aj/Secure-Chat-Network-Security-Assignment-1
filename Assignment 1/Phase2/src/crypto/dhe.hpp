@@ -8,6 +8,9 @@
 
 namespace DHE{
 
+std::vector<uint8_t> BIGNUMToBytes(const BIGNUM* bn);
+BIGNUM* BytesToBIGNUM(const std::vector<uint8_t>& bytes);
+
 BIGNUM* getPrime();
 
 BIGNUM* modularExponentiation(

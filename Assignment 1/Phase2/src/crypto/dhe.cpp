@@ -12,6 +12,17 @@ static constexpr char RFC3526_GROUP14_PRIME[] =
     "EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE65381"
     "FFFFFFFFFFFFFFFF";
 
+std::vector<uint8_t> DHE::BIGNUMToBytes(const BIGNUM* bn) {
+    int num_bytes = BN_num_bytes(bn);
+    std::vector<uint8_t> bytes(num_bytes);
+    BN_bn2bin(bn, bytes.data());
+    return bytes;
+}
+
+BIGNUM* DHE::BytesToBIGNUM(const std::vector<uint8_t>& bytes) {
+    return BN_bin2bn(bytes.data(), bytes.size(), nullptr);
+}
+
 BIGNUM* DHE::getPrime(){
     BIGNUM* p = nullptr;
 
@@ -164,14 +175,7 @@ std::array<uint8_t, 32> DHE::deriveAESKey(
             p
         );
 
-    int num_bytes = BN_num_bytes(shared_secret);
-
-    std::vector<uint8_t> secret(num_bytes);
-
-    BN_bn2bin(
-        shared_secret,
-        secret.data()
-    );
+    std::vector<uint8_t> secret = BIGNUMToBytes(shared_secret);
 
     std::array<uint8_t, 32> aes_key{};
 
