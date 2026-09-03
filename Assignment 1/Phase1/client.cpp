@@ -5,7 +5,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-int main()
+int call_client()
 {
     // creating socket
     int clientSocket = socket(AF_INET, SOCK_STREAM, 0);

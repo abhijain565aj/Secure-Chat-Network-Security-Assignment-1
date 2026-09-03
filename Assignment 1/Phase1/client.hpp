@@ -3,8 +3,10 @@
 
 class Client{
 public:
-    void connectToServer();
-    void closeConnection();
+    // void connectToServer();
+    // void closeConnection();
 };
+
+int call_client();
 
 #endif // CLIENT_HPP
