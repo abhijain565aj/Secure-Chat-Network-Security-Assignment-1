@@ -9,6 +9,7 @@
 #include <memory>
 #include "terminal_ui.hpp"
 #include "chat/message.hpp"
+#include "crypto/dhe.hpp"
 
 class Client{
     const static int BUFFER_SIZE = 1024;
@@ -21,7 +22,11 @@ class Client{
     std::string pendingUsername;
     std::string currentChat;
     bool running;
-
+    
+    DHE::DHParameters dh_params;
+    DHE::DHKeyPair dh_keypair;
+    DHE::DHKey server_public_key;
+    
     void handleInput();
 
 public:
