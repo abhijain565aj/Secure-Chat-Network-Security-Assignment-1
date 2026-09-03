@@ -151,7 +151,7 @@ BIGNUM* DHE::getPublicKey(
     );
 }
 
-std::vector<uint8_t> DHE::deriveAESKey(
+std::array<uint8_t, 32> DHE::deriveAESKey(
     const BIGNUM* private_key,
     const BIGNUM* peer_public_key,
     const BIGNUM* p
@@ -173,7 +173,7 @@ std::vector<uint8_t> DHE::deriveAESKey(
         secret.data()
     );
 
-    std::vector<uint8_t> aes_key{};
+    std::array<uint8_t, 32> aes_key{};
 
     EVP_MD_CTX* mdctx = EVP_MD_CTX_new();
 

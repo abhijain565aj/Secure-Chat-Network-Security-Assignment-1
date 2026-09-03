@@ -2,6 +2,8 @@
 #define DHE_HPP
 
 #include <openssl/bn.h>
+#include <array>            
+#include <cstdint>
 #include <vector>
 
 namespace DHE{
@@ -32,7 +34,7 @@ BIGNUM* getPublicKey(
     const BIGNUM* private_key
 );
 
-std::vector<uint8_t> deriveAESKey(
+std::array<uint8_t, 32> deriveAESKey(
     const BIGNUM* private_key,
     const BIGNUM* peer_public_key,
     const BIGNUM* p
