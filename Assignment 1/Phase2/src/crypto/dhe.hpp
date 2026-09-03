@@ -54,7 +54,9 @@ struct DHKey {
 
     DHKey(BIGNUM* _public_key) : public_key(_public_key) {}
     DHKey(const DHKey&);
+    DHKey(DHKey&& other) noexcept;
     DHKey& operator=(const DHKey&);
+    DHKey& operator=(DHKey&& other) noexcept;
 };
 
 DHKeyPair getNewKeyPair(const DHParameters& params);

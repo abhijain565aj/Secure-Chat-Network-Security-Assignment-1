@@ -319,6 +319,10 @@ DHE::DHKey::DHKey(const DHKey& other) : public_key(BN_dup(other.public_key)) {
     }
 }
 
+DHE::DHKey::DHKey(DHKey&& other) noexcept : public_key(other.public_key) {
+    other.public_key = nullptr;
+}
+
 DHE::DHKey& DHE::DHKey::operator=(const DHKey& other) {
     if (this != &other) {
         BIGNUM* new_public_key = BN_dup(other.public_key);
@@ -327,6 +331,15 @@ DHE::DHKey& DHE::DHKey::operator=(const DHKey& other) {
         }
         BN_free(public_key);
         public_key = new_public_key;
+    }
+    return *this;
+}
+
+DHE::DHKey& DHE::DHKey::operator=(DHKey&& other) noexcept {
+    if (this != &other) {
+        BN_free(public_key);
+        public_key = other.public_key;
+        other.public_key = nullptr;
     }
     return *this;
 }
