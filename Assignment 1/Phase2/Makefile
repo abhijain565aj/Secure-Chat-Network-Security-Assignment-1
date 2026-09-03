@@ -17,7 +17,7 @@ BUILD_DIR := build
 
 CLIENT_SRCS := $(wildcard src/client/*.cpp)
 SERVER_SRCS := $(wildcard src/server/*.cpp)
-COMMON_SRCS := $(wildcard src/utils/*.cpp) $(wildcard src/chat/*.cpp)
+COMMON_SRCS := $(wildcard src/utils/*.cpp) $(wildcard src/chat/*.cpp) $(wildcard src/crypto/*.cpp)
 
 CLIENT_OBJS := $(CLIENT_SRCS:src/%.cpp=$(BUILD_DIR)/%.o)
 SERVER_OBJS := $(SERVER_SRCS:src/%.cpp=$(BUILD_DIR)/%.o)
