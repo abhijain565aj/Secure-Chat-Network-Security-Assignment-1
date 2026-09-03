@@ -118,12 +118,16 @@ void Server::handle_client(int client_fd){
         std::unique_ptr<Message> message = receive_message(client_fd);
         User* user = users.find_by_file_descriptor(client_fd);
         if (user == nullptr) throw std::runtime_error("Unknown client");
+        log_request(client_fd, *message);
 
         if (auto* login = dynamic_cast<LoginMessage*>(message.get())) {
             handle_login(client_fd, *user, *login);
         } else if (!user->is_logged_in()) {
             ServerMessage response("Please login first.");
             send_message(client_fd, response);
+            std::cout << Presentation::server_log(
+                "Rejected request from fd " + std::to_string(client_fd) +
+                ": login required") << std::endl;
         } else if (auto* userMessage = dynamic_cast<UserMessage*>(message.get())) {
             handle_user_message(client_fd, *user, *userMessage);
         } else if (dynamic_cast<WhoMessage*>(message.get())) {
@@ -167,6 +171,9 @@ void Server::handle_user_message(int client_fd, User& user, const UserMessage& m
     if (recipient == nullptr) {
         ServerMessage response("Message failed: user is not online.");
         send_message(client_fd, response);
+        std::cout << Presentation::server_log(
+            "Delivery failed: " + user.get_username() + " -> @" +
+            message.get_username() + " (user offline)") << std::endl;
         return;
     }
     UserMessage delivered(user.get_username(), message.get_username(), message.get_message());
@@ -174,13 +181,37 @@ void Server::handle_user_message(int client_fd, User& user, const UserMessage& m
         send_message(recipient->get_file_descriptor(), delivered);
         if (recipient->get_file_descriptor() != client_fd)
             send_message(client_fd, delivered);
+        std::cout << Presentation::server_log(
+            "Relayed message: " + user.get_username() + " -> @" +
+            message.get_username() + ": " + message.get_message()) << std::endl;
     } catch (const std::exception&) {
         ServerMessage response("Message failed: delivery error.");
         send_message(client_fd, response);
+        std::cout << Presentation::server_log(
+            "Delivery failed: " + user.get_username() + " -> @" +
+            message.get_username() + " (send error)") << std::endl;
     }
 }
 
 void Server::handle_who(int client_fd, const User&) {
     ServerMessage response("Online users:\n" + users.logged_in_usernames());
     send_message(client_fd, response);
+    std::cout << Presentation::server_log("Processed /who request") << std::endl;
+}
+
+void Server::log_request(int client_fd, const Message& message) const {
+    std::string request;
+    if (const auto* login = dynamic_cast<const LoginMessage*>(&message)) {
+        request = "/login " + login->get_username();
+    } else if (const auto* userMessage = dynamic_cast<const UserMessage*>(&message)) {
+        request = "message to @" + userMessage->get_username() + ": " +
+                  userMessage->get_message();
+    } else if (dynamic_cast<const WhoMessage*>(&message)) {
+        request = "/who";
+    } else {
+        request = "unknown message";
+    }
+    std::cout << Presentation::server_log(
+        "Request from fd " + std::to_string(client_fd) + ": " + request)
+              << std::endl;
 }
