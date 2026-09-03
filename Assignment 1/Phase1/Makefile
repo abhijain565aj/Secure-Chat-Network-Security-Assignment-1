@@ -2,7 +2,7 @@ UNAME_S := $(shell uname -s)
 
 CXXFLAGS := -std=c++17 -Wall -Wextra -MMD -MP
 CPPFLAGS := -Isrc -Iinclude
-LDLIBS := -lcrypto
+LDLIBS := -lcrypto -lncurses
 
 ifeq ($(UNAME_S),Linux)
     CXX := g++
