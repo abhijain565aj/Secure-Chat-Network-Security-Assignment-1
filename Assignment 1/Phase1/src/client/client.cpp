@@ -65,7 +65,7 @@ void Client::handleInput(){
     std::string promptMessage;
     while (terminalUi->readInput(promptMessage)) {
         try {
-            ParsedCommand command = CommandParser::parse(promptMessage);
+            ParsedCommand command = CommandParser::parse(promptMessage, currentChat);
             switch (command.type) {
             case CommandType::Quit:
                 running = false;
@@ -77,6 +77,8 @@ void Client::handleInput(){
                 break;
 			case CommandType::Who:
 			case CommandType::UserMessage:
+            case CommandType::CurrentChat:
+                currentChat = static_cast<UserMessage*>(command.message.get())->get_username();
 				handle_send(*command.message);
 				break;
             }

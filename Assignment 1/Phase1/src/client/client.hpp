@@ -19,6 +19,7 @@ class Client{
     std::shared_ptr<TerminalUI> terminalUi;
     std::string username;
     std::string pendingUsername;
+    std::string currentChat;
     bool running;
 
     void handleInput();

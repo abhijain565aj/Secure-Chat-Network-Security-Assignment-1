@@ -17,6 +17,13 @@ ParsedCommand CommandParser::parse(const std::string& input) {
     throw std::runtime_error("Unknown command");
 }
 
+ParsedCommand CommandParser::parse(const std::string& input,
+                                   const std::string& currentChat) {
+    if (!input.empty() && input[0] == '@') return parse_user_message(input);
+    if (input.empty() || input[0] == '/') return parse(input);
+    return parse_current_chat(input, currentChat);
+}
+
 ParsedCommand CommandParser::parse_login(const std::string& input) {
     const std::string login_prefix = "/login ";
     std::string username = input.substr(login_prefix.size());
@@ -33,6 +40,14 @@ ParsedCommand CommandParser::parse_user_message(const std::string& input) {
     std::string message = input.substr(separator + 1);
     return {CommandType::UserMessage,
             std::make_unique<UserMessage>(username, message)};
+}
+
+ParsedCommand CommandParser::parse_current_chat(const std::string& input,
+                                                const std::string& currentChat) {
+    if (currentChat.empty())
+        throw std::runtime_error("Select a recipient with @username message first");
+    return {CommandType::CurrentChat,
+            std::make_unique<UserMessage>(currentChat, input)};
 }
 
 ParsedCommand parse_command(const std::string& input) {
