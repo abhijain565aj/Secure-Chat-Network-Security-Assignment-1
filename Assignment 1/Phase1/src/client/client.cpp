@@ -1,5 +1,6 @@
 #include "client.hpp"
 #include "chat/command.hpp"
+#include "chat/protocol.hpp"
 #include <arpa/inet.h>
 #include <stdexcept>
 #include <unistd.h>
@@ -70,6 +71,7 @@ void Client::handleInput(){
                 closeConnection();
                 return;
 			case CommandType::Login:
+                pendingUsername = static_cast<LoginMessage*>(command.message.get())->get_username();
 			case CommandType::Who:
 			case CommandType::UserMessage:
 				handle_send(*command.message);
@@ -84,12 +86,16 @@ void Client::handleInput(){
 void Client::handle_recv(){
     try {
         std::unique_ptr<Message> message = receive_message(clientSocket);
-        if (auto* user = dynamic_cast<UserMessage*>(message.get()))
-            terminalUi->printOutput("Server: @" + user->get_username() + " " + user->get_message() + "\n");
+        if (auto* user = dynamic_cast<UserMessage*>(message.get())) {
+            std::string speaker = user->get_sender() == username ? "you" : user->get_sender();
+            terminalUi->printOutput("[" + speaker + "] " + user->get_message() + "\n");
+        }
         else if (auto* login = dynamic_cast<LoginMessage*>(message.get()))
             terminalUi->printOutput("Server: login " + login->get_username() + "\n");
-        else if (auto* server = dynamic_cast<ServerMessage*>(message.get()))
+        else if (auto* server = dynamic_cast<ServerMessage*>(message.get())) {
+            if (server->get_text() == "Login successful.") username = pendingUsername;
             terminalUi->printOutput("Server: " + server->get_text() + "\n");
+        }
         else
             terminalUi->printOutput("Server: active users requested\n");
     } catch (const std::exception& error) {

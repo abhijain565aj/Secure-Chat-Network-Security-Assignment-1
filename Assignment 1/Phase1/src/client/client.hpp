@@ -17,6 +17,8 @@ class Client{
     std::vector<pollfd> fds;
     sockaddr_in serverAddress;
     std::shared_ptr<TerminalUI> terminalUi;
+    std::string username;
+    std::string pendingUsername;
     bool running;
 
     void handleInput();
