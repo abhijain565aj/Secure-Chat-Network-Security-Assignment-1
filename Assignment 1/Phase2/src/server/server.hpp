@@ -39,7 +39,7 @@ private:
     void handle_user_message(int client_fd, User& user, const UserMessage& message);
     void handle_who(int client_fd, const User& user);
     void log_request(int client_fd, const Message& message) const;
-    void Server::addClientPublicKey(int client_fd, DHE::DHKey public_key);
+    void addClientPublicKey(int client_fd, DHE::DHKey public_key);
 
 };
 

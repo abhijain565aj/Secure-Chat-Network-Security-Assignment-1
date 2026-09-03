@@ -147,11 +147,11 @@ void Server::handle_client(int client_fd){
         case MessageType::DHKeyMsg:{
             DHKeyMessage& dh_key_msg = static_cast<DHKeyMessage&>(*message);
             DHE::DHKey client_public_key = dh_key_msg.get_public_key();
-            break;
-
+            addClientPublicKey(client_fd, client_public_key);
             std::cout << Presentation::server_log(
                 "Received client public key from fd " +
                 std::to_string(client_fd)) << std::endl;
+            break;
         }
         case MessageType::Login:
             handle_login(client_fd, *user, static_cast<LoginMessage&>(*message));
