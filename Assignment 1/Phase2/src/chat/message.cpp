@@ -99,8 +99,6 @@ std::unique_ptr<Message> CiphertextMsg::deserialize(PacketBuffer& packet) {
     return std::make_unique<CiphertextMsg>(std::move(ciphertext));
 }
 
-AES::Ciphertext CiphertextMsg::get_ciphertext() const { return ciphertext; }
-
 CiphertextMsg::CiphertextMsg(const Message& message, const DHE::AES_KEY& aes_key) {
     ciphertext = AES::encrypt(aes_key, serialize_message(message));
 }
