@@ -196,7 +196,7 @@ void Server::handle_client(int client_fd){
     }
 }
 
-void Server::handle_send(User* user, Message& message, bool encrypt = true) {
+void Server::handle_send(User* user, Message& message, bool encrypt) {
     if (user == nullptr) throw std::runtime_error("Unknown client");
     if (encrypt) {
         CiphertextMsg ciphertext_msg(message, user->get_aes_key());

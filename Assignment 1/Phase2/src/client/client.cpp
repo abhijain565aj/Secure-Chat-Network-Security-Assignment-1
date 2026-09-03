@@ -162,7 +162,7 @@ void Client::handle_recv(){
     }
 }
 
-void Client::handle_send(const Message& message, bool encrypt = true){
+void Client::handle_send(const Message& message, bool encrypt){
     try {
         if(encrypt){
             CiphertextMsg ciphertext_msg(message, server_aes_key);
