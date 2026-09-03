@@ -73,6 +73,8 @@ void Client::handleInput(){
                 return;
 			case CommandType::Login:
                 pendingUsername = static_cast<LoginMessage*>(command.message.get())->get_username();
+                handle_send(*command.message);
+                break;
 			case CommandType::Who:
 			case CommandType::UserMessage:
 				handle_send(*command.message);
