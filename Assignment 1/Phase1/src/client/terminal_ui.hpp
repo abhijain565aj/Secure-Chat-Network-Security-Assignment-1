@@ -3,6 +3,7 @@
 
 #include <ncurses.h>
 #include <string>
+#include "chat/presentation.hpp"
 
 class TerminalUI {
     WINDOW* outputWindow;
@@ -16,6 +17,7 @@ public:
     ~TerminalUI();
 
     bool readInput(std::string& message);
+    void printOutput(const Presentation::Output& output);
     void printOutput(const std::string& message);
 };
 

@@ -2,6 +2,7 @@
 #include "server.hpp"
 #include "chat/message.hpp"
 #include "chat/protocol.hpp"
+#include "chat/presentation.hpp"
 #include <algorithm>
 #include <cerrno>
 #include <cstring>
@@ -87,7 +88,8 @@ void Server::accept_new_clients(){
                               reinterpret_cast<sockaddr*>(&clientAddress),
                               &addressLength);
     if (clientSocket < 0) {
-        std::cerr << "accept: " << std::strerror(errno) << std::endl;
+        std::cerr << Presentation::server_log(
+            std::string("accept: ") + std::strerror(errno)) << std::endl;
         return;
     }
 
@@ -105,9 +107,10 @@ void Server::accept_new_clients(){
         return;
     }
     users.add(User(clientSocket, ipAddress, ntohs(clientAddress.sin_port)));
-    std::cout << "Client connected: " << ipAddress << ":"
-              << ntohs(clientAddress.sin_port) << " (fd " << clientSocket
-              << ")" << std::endl;
+    std::cout << Presentation::server_log(
+        "Client connected: " + std::string(ipAddress) + ":" +
+        std::to_string(ntohs(clientAddress.sin_port)) + " (fd " +
+        std::to_string(clientSocket) + ")") << std::endl;
 }
 
 void Server::handle_client(int client_fd){
@@ -130,7 +133,8 @@ void Server::handle_client(int client_fd){
             send_message(client_fd, response);
         }
     } catch (const std::exception& error) {
-        std::cerr << "message: " << error.what() << std::endl;
+            std::cerr << Presentation::server_log(std::string("message: ") + error.what())
+                      << std::endl;
         close_client(client_fd);
     }
 }
@@ -152,6 +156,8 @@ void Server::handle_login(int client_fd, User& user, const LoginMessage& message
         return;
     }
     user.login(message.get_username());
+    std::cout << Presentation::server_log(
+        "User logged in: " + user.get_username()) << std::endl;
     ServerMessage response("Login successful.");
     send_message(client_fd, response);
 }

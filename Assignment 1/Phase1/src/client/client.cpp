@@ -1,6 +1,7 @@
 #include "client.hpp"
 #include "chat/command.hpp"
 #include "chat/protocol.hpp"
+#include "chat/presentation.hpp"
 #include <arpa/inet.h>
 #include <stdexcept>
 #include <unistd.h>
@@ -78,7 +79,7 @@ void Client::handleInput(){
 				break;
             }
         } catch (const std::exception& error) {
-            terminalUi->printOutput(std::string("Error: ") + error.what() + "\n");
+            terminalUi->printOutput(Presentation::error_message(error.what()));
         }
     }
 }
@@ -87,19 +88,18 @@ void Client::handle_recv(){
     try {
         std::unique_ptr<Message> message = receive_message(clientSocket);
         if (auto* user = dynamic_cast<UserMessage*>(message.get())) {
-            std::string speaker = user->get_sender() == username ? "you" : user->get_sender();
-            terminalUi->printOutput("[" + speaker + "] " + user->get_message() + "\n");
+            terminalUi->printOutput(Presentation::user_message(*user, username));
         }
         else if (auto* login = dynamic_cast<LoginMessage*>(message.get()))
-            terminalUi->printOutput("Server: login " + login->get_username() + "\n");
+            terminalUi->printOutput(Presentation::server_message("login " + login->get_username()));
         else if (auto* server = dynamic_cast<ServerMessage*>(message.get())) {
             if (server->get_text() == "Login successful.") username = pendingUsername;
-            terminalUi->printOutput("Server: " + server->get_text() + "\n");
+            terminalUi->printOutput(Presentation::server_message(server->get_text()));
         }
         else
-            terminalUi->printOutput("Server: active users requested\n");
+            terminalUi->printOutput(Presentation::server_message("active users requested"));
     } catch (const std::exception& error) {
-        terminalUi->printOutput(std::string("recv: ") + error.what() + "\n");
+        terminalUi->printOutput(Presentation::error_message(std::string("recv: ") + error.what()));
         running = false;
         closeConnection();
     }
@@ -109,7 +109,7 @@ void Client::handle_send(const Message& message){
     try {
         send_message(clientSocket, message);
     } catch (const std::exception& error) {
-        terminalUi->printOutput(std::string("send: ") + error.what() + "\n");
+        terminalUi->printOutput(Presentation::error_message(std::string("send: ") + error.what()));
         running = false;
         closeConnection();
     }
