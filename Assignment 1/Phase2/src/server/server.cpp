@@ -130,6 +130,10 @@ void Server::accept_new_clients(){
     send_message(clientSocket, dh_params_message);
     DHKeyMessage dh_key_message(dh_keypair.public_key);
     send_message(clientSocket, dh_key_message);
+
+    std::cout << Presentation::server_log(
+        "Sent DH parameters and server public key to client (fd " +
+        std::to_string(clientSocket) + ")") << std::endl;
 }
 
 void Server::handle_client(int client_fd){
@@ -140,6 +144,15 @@ void Server::handle_client(int client_fd){
         log_request(client_fd, *message);
 
         switch (message->type()) {
+        case MessageType::DHKeyMsg:{
+            DHKeyMessage& dh_key_msg = static_cast<DHKeyMessage&>(*message);
+            DHE::DHKey client_public_key = dh_key_msg.get_public_key();
+            break;
+
+            std::cout << Presentation::server_log(
+                "Received client public key from fd " +
+                std::to_string(client_fd)) << std::endl;
+        }
         case MessageType::Login:
             handle_login(client_fd, *user, static_cast<LoginMessage&>(*message));
             break;
@@ -181,6 +194,13 @@ void Server::close_client(int client_fd){
     fds.erase(std::remove_if(fds.begin(), fds.end(),
                              [](const pollfd& pfd) { return pfd.fd < 0; }),
               fds.end());
+}
+
+void Server::addClientPublicKey(int client_fd, DHE::DHKey public_key) {
+    User* user = users.find_by_file_descriptor(client_fd);
+    if (user == nullptr) throw std::runtime_error("Unknown client");
+    DHE::AES_KEY aes_key = DHE::deriveAESKey(dh_keypair.private_key, public_key.public_key, dh_params.p);
+    user->set_public_key(public_key,aes_key);
 }
 
 void Server::handle_login(int client_fd, User& user, const LoginMessage& message) {

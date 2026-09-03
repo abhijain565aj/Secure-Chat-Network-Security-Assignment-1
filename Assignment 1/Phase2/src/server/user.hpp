@@ -2,6 +2,7 @@
 #define USER_HPP
 
 #include <string>
+#include <crypto/dhe.hpp>
 
 class User {
     int fileDescriptor;
@@ -9,7 +10,8 @@ class User {
     int port;
     std::string username;
     bool loggedIn;
-
+    DHE::DHKey public_key;
+    DHE::AES_KEY aes_key;
 public:
     User(int fileDescriptor, std::string ipAddress, int port);
 
@@ -19,6 +21,7 @@ public:
     const std::string& get_username() const;
     bool is_logged_in() const;
     void login(const std::string& username);
+    void set_public_key(DHE::DHKey& public_key, DHE::AES_KEY& aes_key);
 };
 
 #endif // USER_HPP

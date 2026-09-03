@@ -26,6 +26,7 @@ class Client{
     DHE::DHParameters dh_params;
     DHE::DHKeyPair dh_keypair;
     DHE::DHKey server_public_key;
+    DHE::AES_KEY server_aes_key;
     
     void handleInput();
 

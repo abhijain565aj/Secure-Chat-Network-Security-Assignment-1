@@ -132,6 +132,20 @@ void Client::handle_recv(){
             terminalUi->printOutput(Presentation::server_message(server.get_text()));
             break;
         }
+        case MessageType::DHParametersMsg: {
+            auto& dh_params_msg = static_cast<DHParametersMessage&>(*message);
+            dh_params = dh_params_msg.get_parameters();
+            dh_keypair = DHE::getNewKeyPair(dh_params);
+            DHKeyMessage dh_key_msg(dh_keypair.public_key);
+            handle_send(dh_key_msg);
+            break;
+        }
+        case MessageType::DHKeyMsg:{
+            auto& dh_key_msg = static_cast<DHKeyMessage&>(*message);
+            server_public_key = dh_key_msg.get_public_key();
+            server_aes_key = DHE::deriveAESKey(dh_keypair.private_key, server_public_key.public_key, dh_params.p);
+            break;
+        }
         default:
             terminalUi->printOutput(Presentation::server_message("active users requested"));
         }
