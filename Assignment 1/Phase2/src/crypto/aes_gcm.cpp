@@ -4,12 +4,12 @@
 #include <openssl/rand.h>
 #include <stdexcept>
 
-Ciphertext encrypt(
-    const std::array<uint8_t, 32>& aes_key,
+AES::Ciphertext AES::encrypt(
+    const DHE::AES_KEY& aes_key,
     const std::vector<uint8_t>& plaintext
 )
 {
-    Ciphertext result;
+    AES::Ciphertext result;
 
     constexpr size_t IV_SIZE = 12;
     constexpr size_t TAG_SIZE = 16;
@@ -120,8 +120,8 @@ Ciphertext encrypt(
     return result;
 }
 
-std::vector<uint8_t> decrypt(
-    const std::array<uint8_t, 32>& aes_key,
+std::vector<uint8_t>AES::decrypt(
+    const DHE::AES_KEY& aes_key,
     const Ciphertext& encrypted
 )
 {
