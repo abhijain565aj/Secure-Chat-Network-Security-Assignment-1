@@ -60,8 +60,8 @@ std::unique_ptr<Message> ServerMessage::deserialize(PacketBuffer& packet) {
     return std::make_unique<ServerMessage>(std::move(text));
 }
 
-DHParametersMessage::DHParametersMessage(BIGNUM* b_bn, BIGNUM* g_bn)
-    : Message(), b(DHE::BIGNUMToBytes(b_bn)), g(DHE::BIGNUMToBytes(g_bn)) {}
+DHParametersMessage::DHParametersMessage(DHE::DHParameters params)
+    : Message(), b(DHE::BIGNUMToBytes(params.p)), g(DHE::BIGNUMToBytes(params.g)) {}
 
 void DHParametersMessage::serialize(PacketBuffer& packet) const {
     packet << b << g;

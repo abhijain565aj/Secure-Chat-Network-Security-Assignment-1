@@ -73,7 +73,7 @@ class DHParametersMessage : public Message {
     std::vector<uint8_t> b;
     std::vector<uint8_t> g;
 public:
-    explicit DHParametersMessage(BIGNUM* b, BIGNUM* g);
+    explicit DHParametersMessage(DHE::DHParameters params);
     void serialize(PacketBuffer& packet) const override;
     static std::unique_ptr<Message> deserialize(PacketBuffer& packet);
     BIGNUM* get_b() const { return DHE::BytesToBIGNUM(b); }
