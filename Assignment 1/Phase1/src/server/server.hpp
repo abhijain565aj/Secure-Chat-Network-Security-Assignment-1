@@ -22,6 +22,7 @@ class Server{
 
 public:
     Server(int _port_no): PORT_NO(_port_no) {}
+    ~Server();
     void startServer();
     void stopServer();
     void eventLoop();

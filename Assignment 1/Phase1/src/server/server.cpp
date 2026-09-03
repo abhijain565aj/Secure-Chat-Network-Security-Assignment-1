@@ -11,6 +11,10 @@
 #include <iostream>
 #include <arpa/inet.h>
 
+Server::~Server(){
+    stopServer();
+}
+
 void Server::startServer(){
     serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSocket < 0) {
@@ -19,6 +23,7 @@ void Server::startServer(){
 
     int opt = 1;
     if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+        stopServer();
         throw std::runtime_error(std::strerror(errno));
     }
 
@@ -29,16 +34,20 @@ void Server::startServer(){
 
     if (bind(serverSocket, (struct sockaddr*)&serverAddress,
              sizeof(serverAddress)) < 0) {
+        stopServer();
         throw std::runtime_error(std::strerror(errno));
     }
 
     if (listen(serverSocket, SOMAXCONN) < 0) {
+        stopServer();
         throw std::runtime_error(std::strerror(errno));
     }
 }
 
 void Server::stopServer(){
-    for (const auto& pfd : fds) close(pfd.fd);
+    for (const auto& pfd : fds) {
+        if (pfd.fd >= 0 && pfd.fd != serverSocket) close(pfd.fd);
+    }
     fds.clear();
     users.clear();
     if (serverSocket >= 0) {
@@ -64,6 +73,7 @@ void Server::eventLoop(){
         );
         if (n < 0) {
             if (errno == EINTR) continue;
+            stopServer();
             throw std::runtime_error(std::strerror(errno));
         }
 
