@@ -4,7 +4,9 @@
 #include <string>
 #include <cstdint>
 #include <memory>
+#include <memory>
 #include "utils/helpers.hpp"
+#include "crypto/dhe.hpp"
 
 class PacketBuffer;
 
@@ -65,6 +67,26 @@ public:
     void serialize(PacketBuffer& packet) const override;
     static std::unique_ptr<Message> deserialize(PacketBuffer& packet);
     const std::string& get_text() const { return text; }
+};
+
+class DHParametersMessage : public Message {
+    std::vector<uint8_t> b;
+    std::vector<uint8_t> g;
+public:
+    explicit DHParametersMessage(BIGNUM* b, BIGNUM* g);
+    void serialize(PacketBuffer& packet) const override;
+    static std::unique_ptr<Message> deserialize(PacketBuffer& packet);
+    BIGNUM* get_b() const { return DHE::BytesToBIGNUM(b); }
+    BIGNUM* get_g() const { return DHE::BytesToBIGNUM(g); }
+};
+
+class DHKeyMessage : public Message {
+    std::vector<uint8_t> public_key;
+public:
+    explicit DHKeyMessage(BIGNUM* public_key);
+    void serialize(PacketBuffer& packet) const override;
+    static std::unique_ptr<Message> deserialize(PacketBuffer& packet);
+    BIGNUM* get_public_key() const { return DHE::BytesToBIGNUM(public_key); }
 };
 
 #endif
