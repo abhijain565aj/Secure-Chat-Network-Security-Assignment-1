@@ -74,6 +74,12 @@ LoginMessage::LoginMessage(std::string _username)
 
 WhoMessage::WhoMessage() : Message() {}
 
+ServerMessage::ServerMessage(std::string _text)
+    : Message(), text(std::move(_text)) {
+    if (text.length() > MESSAGE_MAX_LENGTH)
+        throw std::runtime_error("Server message exceeds maximum length");
+}
+
 std::vector<uint8_t> serialize_message(const Message& message) {
     std::vector<uint8_t> frame;
     frame.push_back(static_cast<uint8_t>(message.type()));
@@ -83,6 +89,8 @@ std::vector<uint8_t> serialize_message(const Message& message) {
         append_string(frame, user->get_message());
     } else if (const auto* login = dynamic_cast<const LoginMessage*>(&message)) {
         append_string(frame, login->get_username());
+    } else if (const auto* server = dynamic_cast<const ServerMessage*>(&message)) {
+        append_string(frame, server->get_text());
     } else if (!dynamic_cast<const WhoMessage*>(&message)) {
         throw std::runtime_error("Unknown message type");
     }
@@ -106,6 +114,8 @@ std::unique_ptr<Message> deserialize_message(const std::vector<uint8_t>& frame) 
         message = std::make_unique<LoginMessage>(read_string(frame, offset));
     } else if (type == MessageType::Who) {
         message = std::make_unique<WhoMessage>();
+    } else if (type == MessageType::Server) {
+        message = std::make_unique<ServerMessage>(read_string(frame, offset));
     } else {
         throw std::runtime_error("Unknown message type");
     }

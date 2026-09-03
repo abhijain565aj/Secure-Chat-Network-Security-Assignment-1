@@ -11,7 +11,8 @@
 enum class MessageType : uint8_t {
     User = 1,
     Login = 2,
-    Who = 3
+    Who = 3,
+    Server = 4
 };
 
 class Message{
@@ -45,6 +46,14 @@ class WhoMessage : public Message{
 public:
     WhoMessage();
     MessageType type() const override { return MessageType::Who; }
+};
+
+class ServerMessage : public Message{
+    std::string text;
+public:
+    explicit ServerMessage(std::string text);
+    MessageType type() const override { return MessageType::Server; }
+    const std::string& get_text() const { return text; }
 };
 
 std::vector<uint8_t> serialize_message(const Message& message);
