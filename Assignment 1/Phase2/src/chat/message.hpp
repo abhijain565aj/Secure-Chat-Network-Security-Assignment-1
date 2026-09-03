@@ -14,7 +14,9 @@ enum class MessageType : uint8_t {
     User = 1,
     Login = 2,
     Who = 3,
-    Server = 4
+    Server = 4, 
+    DHParametersMsg = 5,
+    DHKeyMsg = 6
 };
 
 class Message{
@@ -74,6 +76,7 @@ class DHParametersMessage : public Message {
     std::vector<uint8_t> g;
 public:
     explicit DHParametersMessage(DHE::DHParameters params);
+    MessageType type() const override { return MessageType::DHParametersMsg; }
     void serialize(PacketBuffer& packet) const override;
     static std::unique_ptr<Message> deserialize(PacketBuffer& packet);
     BIGNUM* get_b() const { return DHE::BytesToBIGNUM(b); }
@@ -84,6 +87,7 @@ class DHKeyMessage : public Message {
     std::vector<uint8_t> public_key;
 public:
     explicit DHKeyMessage(BIGNUM* public_key);
+    MessageType type() const override { return MessageType::DHKeyMsg; }
     void serialize(PacketBuffer& packet) const override;
     static std::unique_ptr<Message> deserialize(PacketBuffer& packet);
     BIGNUM* get_public_key() const { return DHE::BytesToBIGNUM(public_key); }
