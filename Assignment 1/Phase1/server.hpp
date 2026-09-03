@@ -2,10 +2,12 @@
 #define SERVER_HPP
 
 #include <sys/socket.h>
-
-
+#include <netinet/in.h>
+#include <poll.h>
+#include <vector>
 class Server{
     const static int MAX_EVENTS = 1024;
+    const static int BUFFER_SIZE = 1024;
 
     int PORT_NO;
     sockaddr_in serverAddress;
@@ -22,6 +24,7 @@ public:
 private:
     void accept_new_clients();
     void handle_client(int client_fd);
+    void close_client(int client_fd);
 };
 
 #endif // SERVER_HPP

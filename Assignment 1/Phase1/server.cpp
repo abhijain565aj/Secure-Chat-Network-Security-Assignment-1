@@ -5,9 +5,6 @@
 #include <cstring>
 #include <stdexcept>
 #include <unistd.h>
-#include <netinet/in.h>
-#include <poll.h>
-#include <vector>
 #include <iostream>
 
 void Server::startServer(){
@@ -95,7 +92,7 @@ void Server::accept_new_clients(){
 }
 
 void Server::handle_client(int client_fd){
-    char buffer[1024] = { 0 };
+    char buffer[BUFFER_SIZE] = { 0 };
     ssize_t received = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
     if (received > 0) {
         buffer[received] = '\0';
@@ -103,11 +100,15 @@ void Server::handle_client(int client_fd){
     } else {
         if (received < 0)
             std::cerr << "recv: " << std::strerror(errno) << std::endl;
-        close(client_fd);
-        for (auto& pfd : fds)
-            if (pfd.fd == client_fd) pfd.fd = -1;
-        fds.erase(std::remove_if(fds.begin(), fds.end(),
-                                 [](const pollfd& pfd) { return pfd.fd < 0; }),
-                  fds.end());
+        close_client(client_fd);
     }
+}
+
+void Server::close_client(int client_fd){
+    close(client_fd);
+    for (auto& pfd : fds)
+        if (pfd.fd == client_fd) pfd.fd = -1;
+    fds.erase(std::remove_if(fds.begin(), fds.end(),
+                             [](const pollfd& pfd) { return pfd.fd < 0; }),
+              fds.end());
 }
