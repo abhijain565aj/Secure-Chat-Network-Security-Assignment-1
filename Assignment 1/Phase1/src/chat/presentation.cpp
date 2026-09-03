@@ -31,6 +31,10 @@ Output error_message(const std::string& message) {
     return {"[Error] " + message + "\n", Color::Error};
 }
 
+Output login_success(const std::string& username) {
+    return server_message("Hi @" + username + ", Login successful.");
+}
+
 std::string server_log(const std::string& message) {
     return "\033[36m[Server]\033[0m " + message;
 }

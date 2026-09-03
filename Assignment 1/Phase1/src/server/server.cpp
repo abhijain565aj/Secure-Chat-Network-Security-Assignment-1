@@ -158,7 +158,7 @@ void Server::handle_login(int client_fd, User& user, const LoginMessage& message
     user.login(message.get_username());
     std::cout << Presentation::server_log(
         "User logged in: " + user.get_username()) << std::endl;
-    ServerMessage response("Login successful.");
+    ServerMessage response("Hi @" + user.get_username() + ", Login successful.");
     send_message(client_fd, response);
 }
 

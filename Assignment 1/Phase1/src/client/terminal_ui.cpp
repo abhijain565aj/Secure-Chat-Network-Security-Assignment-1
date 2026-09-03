@@ -36,10 +36,16 @@ TerminalUI::~TerminalUI() {
 
 void TerminalUI::refreshPrompt() {
     werase(promptWindow);
-    mvwaddnstr(promptWindow, 0, 0, "> ", getmaxx(promptWindow) - 1);
-    mvwaddnstr(promptWindow, 0, 2, inputBuffer.c_str(),
-               getmaxx(promptWindow) - 3);
-    wmove(promptWindow, 0, std::min(2 + static_cast<int>(inputBuffer.size()),
+    wattron(promptWindow, COLOR_PAIR(1) | A_DIM);
+    mvwhline(promptWindow, 0, 0, ACS_HLINE, getmaxx(promptWindow));
+    wattroff(promptWindow, COLOR_PAIR(1) | A_DIM);
+
+    wattron(promptWindow, COLOR_PAIR(3) | A_BOLD);
+    mvwaddnstr(promptWindow, 1, 0, "Command > ", getmaxx(promptWindow) - 1);
+    wattroff(promptWindow, COLOR_PAIR(3) | A_BOLD);
+    mvwaddnstr(promptWindow, 1, 10, inputBuffer.c_str(),
+               getmaxx(promptWindow) - 11);
+    wmove(promptWindow, 1, std::min(10 + static_cast<int>(inputBuffer.size()),
                                    getmaxx(promptWindow) - 1));
     wrefresh(promptWindow);
 }
@@ -77,7 +83,9 @@ void TerminalUI::printOutput(const Presentation::Output& output) {
     case Presentation::Color::Normal: break;
     }
     wattron(outputWindow, COLOR_PAIR(colorPair));
+    if (colorPair != 0) wattron(outputWindow, A_BOLD);
     waddnstr(outputWindow, output.text.c_str(), -1);
+    if (colorPair != 0) wattroff(outputWindow, A_BOLD);
     wattroff(outputWindow, COLOR_PAIR(colorPair));
     wrefresh(outputWindow);
     refreshPrompt();

@@ -95,7 +95,9 @@ void Client::handle_recv(){
         else if (auto* login = dynamic_cast<LoginMessage*>(message.get()))
             terminalUi->printOutput(Presentation::server_message("login " + login->get_username()));
         else if (auto* server = dynamic_cast<ServerMessage*>(message.get())) {
-            if (server->get_text() == "Login successful.") username = pendingUsername;
+            if (server->get_text().rfind("Hi @", 0) == 0 &&
+                server->get_text().find(", Login successful.") != std::string::npos)
+                username = pendingUsername;
             terminalUi->printOutput(Presentation::server_message(server->get_text()));
         }
         else
