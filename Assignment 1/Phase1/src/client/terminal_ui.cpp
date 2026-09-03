@@ -1,5 +1,6 @@
 #include "terminal_ui.hpp"
 #include <algorithm>
+#include <stdexcept>
 
 TerminalUI::TerminalUI() : outputWindow(nullptr), promptWindow(nullptr),
     colorsEnabled(false), terminalRows(0), terminalColumns(0) {
@@ -24,6 +25,14 @@ TerminalUI::TerminalUI() : outputWindow(nullptr), promptWindow(nullptr),
     outputWindow = newwin(outputRows, terminalColumns, 0, 0);
     promptWindow = newwin(terminalRows - outputRows, terminalColumns,
                           outputRows, 0);
+    if (outputWindow == nullptr || promptWindow == nullptr) {
+        if (outputWindow != nullptr) delwin(outputWindow);
+        if (promptWindow != nullptr) delwin(promptWindow);
+        outputWindow = nullptr;
+        promptWindow = nullptr;
+        endwin();
+        throw std::runtime_error("Unable to create terminal windows");
+    }
     scrollok(outputWindow, TRUE);
     leaveok(outputWindow, TRUE);
     leaveok(promptWindow, FALSE);

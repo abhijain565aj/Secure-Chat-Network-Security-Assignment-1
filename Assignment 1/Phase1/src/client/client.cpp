@@ -11,6 +11,10 @@
 Client::Client() : clientSocket(-1), terminalUi(std::make_shared<TerminalUI>()),
     running(true) {}
 
+Client::~Client(){
+    closeConnection();
+}
+
 void Client::connectToServer(std::string IP, int port){
     clientSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (clientSocket < 0) {
@@ -21,11 +25,13 @@ void Client::connectToServer(std::string IP, int port){
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons(port);
     if (inet_pton(AF_INET, IP.c_str(), &serverAddress.sin_addr) != 1) {
+        closeConnection();
         throw std::runtime_error("Invalid IP address");
     }
 
     if (connect(clientSocket, (struct sockaddr*)&serverAddress,
                 sizeof(serverAddress)) < 0) {
+        closeConnection();
         throw std::runtime_error(std::strerror(errno));
     }
 }
@@ -41,6 +47,7 @@ void Client::eventLoop(){
 
         if (n < 0) {
             if (errno == EINTR) continue;
+            closeConnection();
             throw std::runtime_error(std::strerror(errno));
         }
 
@@ -59,6 +66,8 @@ void Client::closeConnection(){
         close(clientSocket);
         clientSocket = -1;
     }
+    fds.clear();
+    if (terminalUi != nullptr) terminalUi.reset();
 }
 
 void Client::handleInput(){

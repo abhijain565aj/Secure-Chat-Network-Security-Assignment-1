@@ -26,6 +26,7 @@ class Client{
 
 public:
     Client();
+    ~Client();
     void connectToServer(std::string IP, int port);
     void eventLoop();
     void closeConnection();
