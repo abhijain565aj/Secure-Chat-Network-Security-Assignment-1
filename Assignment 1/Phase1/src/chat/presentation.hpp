@@ -11,15 +11,20 @@ enum class Color {
     Server,
     Incoming,
     Own,
-    Error
+    OtherUser,
+    Error,
+    Divider
 };
 
 struct Output {
     std::string text;
     Color color;
+    bool dim = false;
 };
 
-Output user_message(const UserMessage& message, const std::string& ownUsername);
+Output user_message(const UserMessage& message,
+                    const std::string& ownUsername,
+                    const std::string& currentChat);
 Output server_message(const std::string& message);
 Output error_message(const std::string& message);
 Output login_success(const std::string& username);

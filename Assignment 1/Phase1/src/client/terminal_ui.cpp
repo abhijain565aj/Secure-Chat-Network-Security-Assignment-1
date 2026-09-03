@@ -11,9 +11,10 @@ TerminalUI::TerminalUI() : outputWindow(nullptr), promptWindow(nullptr) {
     start_color();
     use_default_colors();
     init_pair(1, COLOR_CYAN, -1);
-    init_pair(2, COLOR_GREEN, -1);
-    init_pair(3, COLOR_YELLOW, -1);
-    init_pair(4, COLOR_RED, -1);
+    init_pair(2, COLOR_WHITE, -1);
+    init_pair(3, COLOR_GREEN, -1);
+    init_pair(4, COLOR_YELLOW, -1);
+    init_pair(5, COLOR_RED, -1);
 
     int rows;
     int columns;
@@ -80,17 +81,52 @@ void TerminalUI::clearOutput() {
 }
 
 void TerminalUI::printOutput(const Presentation::Output& output) {
+    if (output.color == Presentation::Color::Divider) {
+        printDivider(output.text);
+        return;
+    }
     int colorPair = 0;
     switch (output.color) {
     case Presentation::Color::Server: colorPair = 1; break;
     case Presentation::Color::Incoming: colorPair = 2; break;
     case Presentation::Color::Own: colorPair = 3; break;
-    case Presentation::Color::Error: colorPair = 4; break;
+    case Presentation::Color::OtherUser: colorPair = 4; break;
+    case Presentation::Color::Error: colorPair = 5; break;
+    case Presentation::Color::Divider: colorPair = 1; break;
     case Presentation::Color::Normal: break;
     }
     wattron(outputWindow, COLOR_PAIR(colorPair));
+    if (output.dim) wattron(outputWindow, A_DIM);
     waddnstr(outputWindow, output.text.c_str(), -1);
+    if (output.dim) wattroff(outputWindow, A_DIM);
     wattroff(outputWindow, COLOR_PAIR(colorPair));
+    wrefresh(outputWindow);
+    refreshPrompt();
+}
+
+void TerminalUI::printDivider(const std::string& text) {
+    if (getcurx(outputWindow) != 0) waddch(outputWindow, '\n');
+
+    const int height = getmaxy(outputWindow);
+    int row = getcury(outputWindow);
+    if (row + 3 >= height) {
+        wscrl(outputWindow, row + 4 - height);
+        row = getcury(outputWindow);
+    }
+    const int lastColumn = getmaxx(outputWindow) - 1;
+
+    wattron(outputWindow, A_DIM);
+    mvwhline(outputWindow, row, 0, ACS_HLINE, getmaxx(outputWindow));
+    wattroff(outputWindow, A_DIM);
+
+    wattron(outputWindow, A_DIM);
+    mvwaddnstr(outputWindow, row + 1, 0, text.c_str(), lastColumn);
+    wattroff(outputWindow, A_DIM);
+
+    wattron(outputWindow, A_DIM);
+    mvwhline(outputWindow, row + 2, 0, ACS_HLINE, getmaxx(outputWindow));
+    wattroff(outputWindow, A_DIM);
+    wmove(outputWindow, row + 3, 0);
     wrefresh(outputWindow);
     refreshPrompt();
 }

@@ -11,6 +11,7 @@ class TerminalUI {
     std::string inputBuffer;
 
     void refreshPrompt();
+    void printDivider(const std::string& text);
 
 public:
     TerminalUI();

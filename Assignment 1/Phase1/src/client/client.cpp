@@ -88,7 +88,10 @@ void Client::handleInput(){
 			case CommandType::Who:
 			case CommandType::UserMessage:
             case CommandType::CurrentChat:
-                currentChat = static_cast<UserMessage*>(command.message.get())->get_username();
+				if (command.type == CommandType::UserMessage) {
+                    currentChat = static_cast<UserMessage*>(command.message.get())->get_username();
+                    terminalUi->printOutput(Presentation::chat_switched(currentChat));
+                }
 				handle_send(*command.message);
 				break;
             }
@@ -102,7 +105,7 @@ void Client::handle_recv(){
     try {
         std::unique_ptr<Message> message = receive_message(clientSocket);
         if (auto* user = dynamic_cast<UserMessage*>(message.get())) {
-            terminalUi->printOutput(Presentation::user_message(*user, username));
+            terminalUi->printOutput(Presentation::user_message(*user, username, currentChat));
         }
         else if (auto* login = dynamic_cast<LoginMessage*>(message.get()))
             terminalUi->printOutput(Presentation::server_message("login " + login->get_username()));

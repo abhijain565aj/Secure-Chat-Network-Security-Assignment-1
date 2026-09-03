@@ -3,11 +3,16 @@
 
 namespace Presentation {
 
-Output user_message(const UserMessage& message, const std::string& ownUsername) {
+Output user_message(const UserMessage& message,
+                    const std::string& ownUsername,
+                    const std::string& currentChat) {
     const std::string speaker = message.get_sender() == ownUsername
         ? "you" : message.get_sender();
-    return {"[" + speaker + "] " + message.get_message() + "\n",
-            message.get_sender() == ownUsername ? Color::Own : Color::Incoming};
+    const Color color = message.get_sender() == ownUsername
+        ? Color::Own
+        : message.get_sender() == currentChat ? Color::Incoming : Color::OtherUser;
+        return {"[" + speaker + "] " + message.get_message() + "\n",
+            color, color == Color::OtherUser};
 }
 
 Output server_message(const std::string& message) {
@@ -48,9 +53,7 @@ Output help_message() {
 }
 
 Output chat_switched(const std::string& username) {
-    return server_message("----------------------------------------\n"
-                          "Chat switched to @" + username + "\n"
-                          "----------------------------------------");
+    return {"Now chatting with @" + username, Color::Divider, true};
 }
 
 std::string server_log(const std::string& message) {
