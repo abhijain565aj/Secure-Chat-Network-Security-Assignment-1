@@ -30,15 +30,18 @@ DEPS := $(CLIENT_OBJS:.o=.d) \
         $(SERVER_OBJS:.o=.d) \
         $(COMMON_OBJS:.o=.d)
 
+IP := "127.0.0.1"
+PORT := 12345
+
 .PHONY: all client server clean
 
 all: $(RUN_CLIENT) $(RUN_SERVER)
 
 client: $(RUN_CLIENT)
-	./$(RUN_CLIENT)
+	./$(RUN_CLIENT) $(IP) $(PORT)
 
 server: $(RUN_SERVER)
-	./$(RUN_SERVER)
+	./$(RUN_SERVER) $(PORT)
 
 $(RUN_CLIENT): $(CLIENT_OBJS) $(COMMON_OBJS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) $(LDFLAGS) -o $@
