@@ -2,17 +2,11 @@
 #include <arpa/inet.h>
 #include <stdexcept>
 #include <unistd.h>
-#include <iostream>
 #include <cstring>
+#include <cerrno>
 
-Client::Client(){
-    fds.resize(2);
-    fds[0].fd = STDIN_FILENO;
-    fds[0].events = POLLIN;
-
-    fds[1].fd = clientSocket;
-    fds[1].events = POLLIN;
-}
+Client::Client() : clientSocket(-1), terminalUi(std::make_shared<TerminalUI>()),
+    running(true) {}
 
 void Client::connectToServer(std::string IP, int port){
     clientSocket = socket(AF_INET, SOCK_STREAM, 0);
@@ -34,16 +28,21 @@ void Client::connectToServer(std::string IP, int port){
 }
 
 void Client::eventLoop(){
-    while (true) {
-        int n = poll(fds.data(), fds.size(), -1);
+    fds = {
+        {STDIN_FILENO, POLLIN, 0},
+        {clientSocket, POLLIN, 0}
+    };
+
+    while (running) {
+        int n = poll(fds.data(), fds.size(), 100);
 
         if (n < 0) {
             if (errno == EINTR) continue;
             throw std::runtime_error(std::strerror(errno));
         }
 
-        if (fds[0].revents & POLLIN) {
-            handle_send();
+        if (fds[0].revents & (POLLIN | POLLHUP | POLLERR)) {
+            handleInput();
         }
 
         if (fds[1].revents & POLLIN) {
@@ -53,7 +52,17 @@ void Client::eventLoop(){
 }
 
 void Client::closeConnection(){
-    close(clientSocket);
+    if (clientSocket >= 0) {
+        close(clientSocket);
+        clientSocket = -1;
+    }
+}
+
+void Client::handleInput(){
+    std::string message;
+    while (terminalUi->readInput(message)) {
+        handle_send(message);
+    }
 }
 
 void Client::handle_recv(){
@@ -61,22 +70,24 @@ void Client::handle_recv(){
     ssize_t received = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
     if (received > 0) {
         buffer[received] = '\0';
-        std::cout << "Server: " << buffer;
+        std::string output = "Server: " + std::string(buffer, received);
+        if (output.back() != '\n') output += '\n';
+        terminalUi->printOutput(output);
     } else {
         if (received < 0)
-            std::cerr << "recv: " << std::strerror(errno) << std::endl;
+            terminalUi->printOutput("recv: " + std::string(std::strerror(errno)) + "\n");
+        else
+            terminalUi->printOutput("Server disconnected.\n");
+        running = false;
         closeConnection();
-        exit(0);
     }
 }
 
-void Client::handle_send(){
-    std::string message;
-    std::getline(std::cin, message);
+void Client::handle_send(const std::string& message){
     ssize_t sent = send(clientSocket, message.c_str(), message.size(), 0);
     if (sent < 0) {
-        std::cerr << "send: " << std::strerror(errno) << std::endl;
+        terminalUi->printOutput("send: " + std::string(std::strerror(errno)) + "\n");
+        running = false;
         closeConnection();
-        exit(1);
     }
 }

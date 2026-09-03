@@ -6,6 +6,8 @@
 #include <poll.h>
 #include <vector>
 #include <string>
+#include <memory>
+#include "terminal_ui.hpp"
 
 class Client{
     const static int BUFFER_SIZE = 1024;
@@ -13,6 +15,10 @@ class Client{
     int clientSocket;
     std::vector<pollfd> fds;
     sockaddr_in serverAddress;
+    std::shared_ptr<TerminalUI> terminalUi;
+    bool running;
+
+    void handleInput();
 
 public:
     Client();
@@ -22,7 +28,7 @@ public:
     
 private:
     void handle_recv();
-    void handle_send();
+    void handle_send(const std::string& message);
 };
 
 #endif // CLIENT_HPP
