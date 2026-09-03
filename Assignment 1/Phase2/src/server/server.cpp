@@ -126,10 +126,15 @@ void Server::accept_new_clients(){
         std::to_string(clientSocket) + ")") << std::endl;
     
     //send the DH parameters to the client
+    User* user = users.find_by_file_descriptor(clientSocket);
+    if (user == nullptr) {
+        close_client(clientSocket);
+        throw std::runtime_error("Unknown client");
+    }
     DHParametersMessage dh_params_message(dh_params);
-    send_message(clientSocket, dh_params_message);
+    handle_send(user, dh_params_message);
     DHKeyMessage dh_key_message(dh_keypair.public_key);
-    send_message(clientSocket, dh_key_message);
+    handle_send(user, dh_key_message);
 
     std::cout << Presentation::server_log(
         "Sent DH parameters and server public key to client (fd " +
@@ -159,7 +164,7 @@ void Server::handle_client(int client_fd){
         default:
             if (!user->is_logged_in()) {
             ServerMessage response("Please login first.");
-            send_message(client_fd, response);
+            handle_send(user, response);
             std::cout << Presentation::server_log(
                 "Rejected request from fd " + std::to_string(client_fd) +
                 ": login required") << std::endl;
@@ -174,7 +179,7 @@ void Server::handle_client(int client_fd){
                 break;
             default: {
                 ServerMessage response("Unsupported message.");
-                send_message(client_fd, response);
+                handle_send(user, response);
                 break;
             }
             }
@@ -184,6 +189,11 @@ void Server::handle_client(int client_fd){
                       << std::endl;
         close_client(client_fd);
     }
+}
+
+void Server::handle_send(User* user, Message& message) {
+    if (user == nullptr) throw std::runtime_error("Unknown client");
+    send_message(user->get_file_descriptor(), message);
 }
 
 void Server::close_client(int client_fd){
@@ -206,21 +216,21 @@ void Server::addClientPublicKey(int client_fd, DHE::DHKey public_key) {
 void Server::handle_login(int client_fd, User& user, const LoginMessage& message) {
     if (users.find_logged_in(message.get_username()) != nullptr) {
         ServerMessage response("Username is already in use.");
-        send_message(client_fd, response);
+        handle_send(&user, response);
         return;
     }
     user.login(message.get_username());
     std::cout << Presentation::server_log(
         "User logged in: " + user.get_username()) << std::endl;
     ServerMessage response("Hi @" + user.get_username() + ", Login successful.");
-    send_message(client_fd, response);
+    handle_send(&user, response);
 }
 
 void Server::handle_user_message(int client_fd, User& user, const UserMessage& message) {
     User* recipient = users.find_logged_in(message.get_username());
     if (recipient == nullptr) {
         ServerMessage response("Message failed: user is not online.");
-        send_message(client_fd, response);
+        handle_send(&user, response);
         std::cout << Presentation::server_log(
             "Delivery failed: " + user.get_username() + " -> @" +
             message.get_username() + " (user offline)") << std::endl;
@@ -228,15 +238,15 @@ void Server::handle_user_message(int client_fd, User& user, const UserMessage& m
     }
     UserMessage delivered(user.get_username(), message.get_username(), message.get_message());
     try {
-        send_message(recipient->get_file_descriptor(), delivered);
+        handle_send(recipient, delivered);
         if (recipient->get_file_descriptor() != client_fd)
-            send_message(client_fd, delivered);
+            handle_send(&user, delivered);
         std::cout << Presentation::server_log(
             "Relayed message: " + user.get_username() + " -> @" +
             message.get_username() + ": " + message.get_message()) << std::endl;
     } catch (const std::exception&) {
         ServerMessage response("Message failed: delivery error.");
-        send_message(client_fd, response);
+        handle_send(&user, response);
         std::cout << Presentation::server_log(
             "Delivery failed: " + user.get_username() + " -> @" +
             message.get_username() + " (send error)") << std::endl;
@@ -245,7 +255,8 @@ void Server::handle_user_message(int client_fd, User& user, const UserMessage& m
 
 void Server::handle_who(int client_fd, const User&) {
     ServerMessage response("Online users:\n" + users.logged_in_usernames());
-    send_message(client_fd, response);
+    User* user = users.find_by_file_descriptor(client_fd);
+    handle_send(user, response);
     std::cout << Presentation::server_log("Processed /who request") << std::endl;
 }
 
