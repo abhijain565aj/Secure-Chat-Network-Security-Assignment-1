@@ -8,6 +8,7 @@
 #include <string>
 #include <memory>
 #include "terminal_ui.hpp"
+#include "chat/message.hpp"
 
 class Client{
     const static int BUFFER_SIZE = 1024;
@@ -28,7 +29,7 @@ public:
     
 private:
     void handle_recv();
-    void handle_send(const std::string& message);
+    void handle_send(const Message& message);
 };
 
 #endif // CLIENT_HPP

@@ -1,5 +1,6 @@
 
 #include "server.hpp"
+#include "chat/message.hpp"
 #include <algorithm>
 #include <cerrno>
 #include <cstring>
@@ -92,14 +93,19 @@ void Server::accept_new_clients(){
 }
 
 void Server::handle_client(int client_fd){
-    char buffer[BUFFER_SIZE] = { 0 };
-    ssize_t received = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
-    if (received > 0) {
-        buffer[received] = '\0';
-        std::cout << "Message from client: " << buffer << std::endl;
-    } else {
-        if (received < 0)
-            std::cerr << "recv: " << std::strerror(errno) << std::endl;
+    try {
+        std::unique_ptr<Message> message = receive_message(client_fd);
+        if (auto* user = dynamic_cast<UserMessage*>(message.get())) {
+            std::cout << "Message from client: @" << user->get_username()
+                      << " " << user->get_message() << std::endl;
+        } else if (auto* login = dynamic_cast<LoginMessage*>(message.get())) {
+            std::cout << "Login request: " << login->get_username() << std::endl;
+        } else {
+            std::cout << "Who request received" << std::endl;
+        }
+        send_message(client_fd, *message);
+    } catch (const std::exception& error) {
+        std::cerr << "message: " << error.what() << std::endl;
         close_client(client_fd);
     }
 }

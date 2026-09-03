@@ -1,4 +1,5 @@
 #include "client.hpp"
+#include "chat/command.hpp"
 #include <arpa/inet.h>
 #include <stdexcept>
 #include <unistd.h>
@@ -59,34 +60,48 @@ void Client::closeConnection(){
 }
 
 void Client::handleInput(){
-    std::string message;
-    while (terminalUi->readInput(message)) {
-        handle_send(message);
+    std::string promptMessage;
+    while (terminalUi->readInput(promptMessage)) {
+        try {
+            ParsedCommand command = CommandParser::parse(promptMessage);
+            switch (command.type) {
+            case CommandType::Quit:
+                running = false;
+                closeConnection();
+                return;
+			case CommandType::Login:
+			case CommandType::Who:
+			case CommandType::UserMessage:
+				handle_send(*command.message);
+				break;
+            }
+        } catch (const std::exception& error) {
+            terminalUi->printOutput(std::string("Error: ") + error.what() + "\n");
+        }
     }
 }
 
 void Client::handle_recv(){
-    char buffer[BUFFER_SIZE] = { 0 };
-    ssize_t received = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
-    if (received > 0) {
-        buffer[received] = '\0';
-        std::string output = "Server: " + std::string(buffer, received);
-        if (output.back() != '\n') output += '\n';
-        terminalUi->printOutput(output);
-    } else {
-        if (received < 0)
-            terminalUi->printOutput("recv: " + std::string(std::strerror(errno)) + "\n");
+    try {
+        std::unique_ptr<Message> message = receive_message(clientSocket);
+        if (auto* user = dynamic_cast<UserMessage*>(message.get()))
+            terminalUi->printOutput("Server: @" + user->get_username() + " " + user->get_message() + "\n");
+        else if (auto* login = dynamic_cast<LoginMessage*>(message.get()))
+            terminalUi->printOutput("Server: login " + login->get_username() + "\n");
         else
-            terminalUi->printOutput("Server disconnected.\n");
+            terminalUi->printOutput("Server: active users requested\n");
+    } catch (const std::exception& error) {
+        terminalUi->printOutput(std::string("recv: ") + error.what() + "\n");
         running = false;
         closeConnection();
     }
 }
 
-void Client::handle_send(const std::string& message){
-    ssize_t sent = send(clientSocket, message.c_str(), message.size(), 0);
-    if (sent < 0) {
-        terminalUi->printOutput("send: " + std::string(std::strerror(errno)) + "\n");
+void Client::handle_send(const Message& message){
+    try {
+        send_message(clientSocket, message);
+    } catch (const std::exception& error) {
+        terminalUi->printOutput(std::string("send: ") + error.what() + "\n");
         running = false;
         closeConnection();
     }
