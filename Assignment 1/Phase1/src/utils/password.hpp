@@ -4,6 +4,7 @@
 #include "utils/constants.hpp"
 #include <string>
 #include <ctime>
+#include <cstdint>
 
 void check_username(std::string username);
 std::string get_password(std::string prompt);
