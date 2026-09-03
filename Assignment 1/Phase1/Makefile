@@ -1,7 +1,17 @@
-CXX := g++-15
+UNAME_S := $(shell uname -s)
 
 CXXFLAGS := -std=c++17 -Wall -Wextra -MMD -MP
 CPPFLAGS := -Isrc -Iinclude
+LDLIBS := -lcrypto
+
+ifeq ($(UNAME_S),Linux)
+    CXX := g++
+else ifeq ($(UNAME_S),Darwin)
+    CXX := g++-15
+	OPENSSL_DIR := $(shell brew --prefix openssl)
+    CXXFLAGS += -I$(OPENSSL_DIR)/include
+    LDFLAGS  += -L$(OPENSSL_DIR)/lib
+endif
 
 BUILD_DIR := build
 
@@ -31,10 +41,10 @@ server: $(RUN_SERVER)
 	./$(RUN_SERVER)
 
 $(RUN_CLIENT): $(CLIENT_OBJS) $(COMMON_OBJS)
-	$(CXX) $^ -o $@
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) $(LDFLAGS) -o $@
 
 $(RUN_SERVER): $(SERVER_OBJS) $(COMMON_OBJS)
-	$(CXX) $^ -o $@
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) $(LDFLAGS) -o $@
 
 $(BUILD_DIR)/%.o: src/%.cpp
 	@mkdir -p $(dir $@)

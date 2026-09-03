@@ -1,4 +1,5 @@
 #include "chat/message.hpp"
+#include <stdexcept>
 
 Message::Message() : timestamp(get_timestamp()) {}
 

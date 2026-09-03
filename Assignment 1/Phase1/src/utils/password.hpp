@@ -1,7 +1,7 @@
 #ifndef UTILS_HPP
 #define UTILS_HPP
 
-#include "src/utils/constants.hpp"
+#include "utils/constants.hpp"
 #include <string>
 #include <ctime>
 
