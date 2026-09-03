@@ -139,21 +139,32 @@ void Server::handle_client(int client_fd){
         if (user == nullptr) throw std::runtime_error("Unknown client");
         log_request(client_fd, *message);
 
-        if (auto* login = dynamic_cast<LoginMessage*>(message.get())) {
-            handle_login(client_fd, *user, *login);
-        } else if (!user->is_logged_in()) {
+        switch (message->type()) {
+        case MessageType::Login:
+            handle_login(client_fd, *user, static_cast<LoginMessage&>(*message));
+            break;
+        default:
+            if (!user->is_logged_in()) {
             ServerMessage response("Please login first.");
             send_message(client_fd, response);
             std::cout << Presentation::server_log(
                 "Rejected request from fd " + std::to_string(client_fd) +
                 ": login required") << std::endl;
-        } else if (auto* userMessage = dynamic_cast<UserMessage*>(message.get())) {
-            handle_user_message(client_fd, *user, *userMessage);
-        } else if (dynamic_cast<WhoMessage*>(message.get())) {
-            handle_who(client_fd, *user);
-        } else {
-            ServerMessage response("Unsupported message.");
-            send_message(client_fd, response);
+                break;
+            }
+            switch (message->type()) {
+            case MessageType::User:
+                handle_user_message(client_fd, *user, static_cast<UserMessage&>(*message));
+                break;
+            case MessageType::Who:
+                handle_who(client_fd, *user);
+                break;
+            default: {
+                ServerMessage response("Unsupported message.");
+                send_message(client_fd, response);
+                break;
+            }
+            }
         }
     } catch (const std::exception& error) {
             std::cerr << Presentation::server_log(std::string("message: ") + error.what())
@@ -220,14 +231,22 @@ void Server::handle_who(int client_fd, const User&) {
 
 void Server::log_request(int client_fd, const Message& message) const {
     std::string request;
-    if (const auto* login = dynamic_cast<const LoginMessage*>(&message)) {
-        request = "/login " + login->get_username();
-    } else if (const auto* userMessage = dynamic_cast<const UserMessage*>(&message)) {
-        request = "message to @" + userMessage->get_username() + ": " +
-                  userMessage->get_message();
-    } else if (dynamic_cast<const WhoMessage*>(&message)) {
+    switch (message.type()) {
+    case MessageType::Login: {
+        const auto& login = static_cast<const LoginMessage&>(message);
+        request = "/login " + login.get_username();
+        break;
+    }
+    case MessageType::User: {
+        const auto& userMessage = static_cast<const UserMessage&>(message);
+        request = "message to @" + userMessage.get_username() + ": " +
+                  userMessage.get_message();
+        break;
+    }
+    case MessageType::Who:
         request = "/who";
-    } else {
+        break;
+    default:
         request = "unknown message";
     }
     std::cout << Presentation::server_log(

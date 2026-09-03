@@ -113,19 +113,28 @@ void Client::handleInput(){
 void Client::handle_recv(){
     try {
         std::unique_ptr<Message> message = receive_message(clientSocket);
-        if (auto* user = dynamic_cast<UserMessage*>(message.get())) {
-            terminalUi->printOutput(Presentation::user_message(*user, username, currentChat));
+        switch (message->type()) {
+        case MessageType::User: {
+            auto& user = static_cast<UserMessage&>(*message);
+            terminalUi->printOutput(Presentation::user_message(user, username, currentChat));
+            break;
         }
-        else if (auto* login = dynamic_cast<LoginMessage*>(message.get()))
-            terminalUi->printOutput(Presentation::server_message("login " + login->get_username()));
-        else if (auto* server = dynamic_cast<ServerMessage*>(message.get())) {
-            if (server->get_text().rfind("Hi @", 0) == 0 &&
-                server->get_text().find(", Login successful.") != std::string::npos)
+        case MessageType::Login: {
+            auto& login = static_cast<LoginMessage&>(*message);
+            terminalUi->printOutput(Presentation::server_message("login " + login.get_username()));
+            break;
+        }
+        case MessageType::Server: {
+            auto& server = static_cast<ServerMessage&>(*message);
+            if (server.get_text().rfind("Hi @", 0) == 0 &&
+                server.get_text().find(", Login successful.") != std::string::npos)
                 username = pendingUsername;
-            terminalUi->printOutput(Presentation::server_message(server->get_text()));
+            terminalUi->printOutput(Presentation::server_message(server.get_text()));
+            break;
         }
-        else
+        default:
             terminalUi->printOutput(Presentation::server_message("active users requested"));
+        }
     } catch (const std::exception& error) {
         terminalUi->printOutput(Presentation::error_message(std::string("recv: ") + error.what()));
         running = false;
