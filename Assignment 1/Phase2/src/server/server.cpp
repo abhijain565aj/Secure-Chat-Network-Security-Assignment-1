@@ -124,6 +124,12 @@ void Server::accept_new_clients(){
         "Client connected: " + std::string(ipAddress) + ":" +
         std::to_string(ntohs(clientAddress.sin_port)) + " (fd " +
         std::to_string(clientSocket) + ")") << std::endl;
+    
+    //send the DH parameters to the client
+    DHParametersMessage dh_params_message(dh_params);
+    send_message(clientSocket, dh_params_message);
+    DHKeyMessage dh_key_message(dh_keypair.public_key);
+    send_message(clientSocket, dh_key_message);
 }
 
 void Server::handle_client(int client_fd){
