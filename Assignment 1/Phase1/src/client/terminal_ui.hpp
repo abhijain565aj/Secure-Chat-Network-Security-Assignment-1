@@ -9,8 +9,12 @@ class TerminalUI {
     WINDOW* outputWindow;
     WINDOW* promptWindow;
     std::string inputBuffer;
+    bool colorsEnabled;
+    int terminalRows;
+    int terminalColumns;
 
     void refreshPrompt();
+    void resizeLayout(int promptRows);
     void printDivider(const std::string& text);
 
 public:
