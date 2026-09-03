@@ -75,7 +75,7 @@ class DHParametersMessage : public Message {
     std::vector<uint8_t> b;
     std::vector<uint8_t> g;
 public:
-    explicit DHParametersMessage(DHE::DHParameters params);
+    explicit DHParametersMessage(DHE::DHParameters& params);
     MessageType type() const override { return MessageType::DHParametersMsg; }
     void serialize(PacketBuffer& packet) const override;
     static std::unique_ptr<Message> deserialize(PacketBuffer& packet);
@@ -85,7 +85,7 @@ public:
 class DHKeyMessage : public Message {
     std::vector<uint8_t> public_key;
 public:
-    explicit DHKeyMessage(DHE::DHKey public_key);
+    explicit DHKeyMessage(BIGNUM* public_key);
     MessageType type() const override { return MessageType::DHKeyMsg; }
     void serialize(PacketBuffer& packet) const override;
     static std::unique_ptr<Message> deserialize(PacketBuffer& packet);
