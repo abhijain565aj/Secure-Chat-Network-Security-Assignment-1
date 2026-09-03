@@ -9,3 +9,11 @@ UserMessage::UserMessage::UserMessage(std::string _username, std::string _msg)
             throw std::runtime_error("Message exceeds maximum length");
         }
     }
+
+LoginMessage::LoginMessage(std::string _username)
+    : Message(), username(_username) {
+        check_username(username);
+        // password = get_password("Enter password: ");
+    }
+
+WhoMessage::WhoMessage() : Message() {}

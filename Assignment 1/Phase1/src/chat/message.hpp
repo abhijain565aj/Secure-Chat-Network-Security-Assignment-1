@@ -30,15 +30,4 @@ public:
     WhoMessage();
 };
 
-class QuitMessage : public Message{
-public:
-    QuitMessage();
-};
-
-class SwitchMessage : public Message{
-    std::string username;
-public:
-    SwitchMessage(std::string _username);
-};
-
 #endif

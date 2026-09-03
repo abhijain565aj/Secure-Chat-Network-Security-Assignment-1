@@ -1,4 +1,4 @@
-#include "src/utils/password.hpp"
+#include "utils/password.hpp"
 #include <termios.h>
 #include <unistd.h>
 #include <iostream>
