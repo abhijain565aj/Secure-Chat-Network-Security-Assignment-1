@@ -8,6 +8,8 @@
 
 namespace DHE{
 
+using AES_KEY = std::array<uint8_t, 32>;
+
 std::vector<uint8_t> BIGNUMToBytes(const BIGNUM* bn);
 BIGNUM* BytesToBIGNUM(const std::vector<uint8_t>& bytes);
 
@@ -63,7 +65,7 @@ BIGNUM* getPublicKey(
     const BIGNUM* private_key
 );
 
-std::array<uint8_t, 32> deriveAESKey(
+AES_KEY deriveAESKey(
     const BIGNUM* private_key,
     const BIGNUM* peer_public_key,
     const BIGNUM* p
