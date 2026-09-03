@@ -44,9 +44,9 @@ DHE::DHKeyPair::~DHKeyPair()
     BN_free(public_key);
 }
 
-DHE::DHKeyPair DHE::getBN(
-    const BIGNUM* p,
-    const BIGNUM* g
+
+DHE::DHKeyPair DHE::getNewKeyPair(
+    const DHParameters& params
 )
 {
     DHKeyPair keypair;
@@ -58,7 +58,7 @@ DHE::DHKeyPair DHE::getBN(
     }
 
     // Generate random private key. We generate a value in [1, p-2].
-    BIGNUM* max = BN_dup(p);
+    BIGNUM* max = BN_dup(params.p);
 
     if (!max) {
         throw std::runtime_error("BN_dup failed");
@@ -78,9 +78,9 @@ DHE::DHKeyPair DHE::getBN(
     // public = g^private mod p
     keypair.public_key =
         modularExponentiation(
-            g,
+            params.g,
             keypair.private_key,
-            p
+            params.p
         );
 
     return keypair;
@@ -255,3 +255,53 @@ DHE::DHParameters DHE::getNewDHParameters(){
 
     return params;
 }
+
+DHE::DHKeyPair::DHKeyPair(const DHKeyPair& other) : private_key(BN_dup(other.private_key)), public_key(BN_dup(other.public_key)) {
+    if (!private_key || !public_key) {
+        BN_free(private_key);
+        BN_free(public_key);
+        throw std::runtime_error("Failed to copy DHKeyPair");
+    }
+}
+
+DHE::DHKeyPair& DHE::DHKeyPair::operator=(const DHKeyPair& other) {
+    if (this != &other) {
+        BIGNUM* new_private_key = BN_dup(other.private_key);
+        BIGNUM* new_public_key = BN_dup(other.public_key);
+        if (!new_private_key || !new_public_key) {
+            BN_free(new_private_key);
+            BN_free(new_public_key);
+            throw std::runtime_error("Failed to copy DHKeyPair");
+        }
+        BN_free(private_key);
+        BN_free(public_key);
+        private_key = new_private_key;
+        public_key = new_public_key;
+    }
+    return *this;
+}
+
+DHE::DHParameters::DHParameters(const DHParameters& other) : p(BN_dup(other.p)), g(BN_dup(other.g)) {
+    if (!p || !g) {
+        BN_free(p);
+        BN_free(g);
+        throw std::runtime_error("Failed to copy DHParameters");
+    }
+}
+
+DHE::DHParameters& DHE::DHParameters::operator=(const DHParameters& other){
+    if(this != &other){
+        BIGNUM* new_p = BN_dup(other.g);
+        BIGNUM* new_public_key = BN_dup(other.p);
+        if (!new_p || !new_public_key) {
+            BN_free(new_p);
+            BN_free(new_public_key);
+            throw std::runtime_error("Failed to copy DHParameters");
+        }
+        BN_free(p);
+        BN_free(g);
+        p = new_p;
+        g = new_public_key;
+    }
+    return *this;
+}   

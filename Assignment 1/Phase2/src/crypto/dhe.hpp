@@ -19,6 +19,19 @@ BIGNUM* modularExponentiation(
     const BIGNUM* modulus
 );
 
+struct DHParameters {
+    BIGNUM* p;
+    BIGNUM* g;
+
+    DHParameters();
+    ~DHParameters();
+
+    DHParameters(const DHParameters&) = delete;
+    DHParameters& operator=(const DHParameters&) = delete;
+};
+
+DHParameters getNewDHParameters();
+
 struct DHKeyPair {
     BIGNUM* private_key;
     BIGNUM* public_key;
@@ -26,10 +39,11 @@ struct DHKeyPair {
     DHKeyPair();
     ~DHKeyPair();
     
+    DHKeyPair(const DHKeyPair&) = delete;
     DHKeyPair& operator=(const DHKeyPair&) = delete;
 };
 
-DHKeyPair getBN(const BIGNUM* p, const BIGNUM* g);
+DHKeyPair getNewKeyPair(const DHParameters& params);
 
 BIGNUM* getPublicKey(
     const BIGNUM* server_g,
@@ -43,15 +57,7 @@ std::array<uint8_t, 32> deriveAESKey(
     const BIGNUM* p
 );
     
-struct DHParameters {
-    BIGNUM* p;
-    BIGNUM* g;
 
-    DHParameters();
-    ~DHParameters();
-};
-
-DHParameters getNewDHParameters();
 
 } //namespace DHE
 
