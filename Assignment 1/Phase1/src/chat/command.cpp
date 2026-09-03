@@ -61,7 +61,8 @@ ParsedCommand CommandParser::parse_current_chat(const std::string& input,
     if (currentChat.empty())
         throw std::runtime_error("Select a recipient with @username message first");
     return {CommandType::CurrentChat,
-            std::make_unique<UserMessage>(currentChat, input)};
+            std::make_unique<UserMessage>(currentChat, input),
+            ""};
 }
 
 ParsedCommand parse_command(const std::string& input) {
