@@ -1,49 +1,48 @@
-// #include <cstring>
-// #include <iostream>
-// #include <netinet/in.h>
-// #include <sys/socket.h>
-// #include <unistd.h>
-
-// using namespace std;
-
-// int main()
-// {
-//     // listening to the assigned socket
-//     listen(serverSocket, 5);
-
-//     // accepting connection request
-//     int clientSocket
-//         = accept(serverSocket, nullptr, nullptr);
-
-//     // recieving data
-//     char buffer[1024] = { 0 };
-//     recv(clientSocket, buffer, sizeof(buffer), 0);
-//     cout << "Message from client: " << buffer
-//               << endl;
-
-//     // closing the socket.
-//     close(serverSocket);
-
-//     return 0;
-// }
 
 #include "server.hpp"
+#include <algorithm>
+#include <cerrno>
+#include <cstring>
+#include <stdexcept>
+#include <unistd.h>
+#include <netinet/in.h>
+#include <poll.h>
+#include <vector>
+#include <iostream>
 
 void Server::startServer(){
-    int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+    serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (serverSocket < 0) {
+        throw std::runtime_error(std::strerror(errno));
+    }
 
     int opt = 1;
-    setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+        throw std::runtime_error(std::strerror(errno));
+    }
 
+    serverAddress = {};
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons(PORT_NO);
-    serverAddress.sin_addr.s_addr = INADDR_ANY;
+    serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    bind(serverSocket, (struct sockaddr*)&serverAddress,
-        sizeof(serverAddress));
+    if (bind(serverSocket, (struct sockaddr*)&serverAddress,
+             sizeof(serverAddress)) < 0) {
+        throw std::runtime_error(std::strerror(errno));
+    }
+
+    if (listen(serverSocket, SOMAXCONN) < 0) {
+        throw std::runtime_error(std::strerror(errno));
+    }
 }
 
 void Server::stopServer(){
+    for (const auto& pfd : fds) close(pfd.fd);
+    fds.clear();
+    if (serverSocket >= 0) {
+        close(serverSocket);
+        serverSocket = -1;
+    }
 }
 
 void Server::eventLoop(){
@@ -56,15 +55,20 @@ void Server::eventLoop(){
 
     while (true) {
 
-        [[maybe_unused]] int n = poll(
+        int n = poll(
             fds.data(),
             fds.size(),
             -1
         );
+        if (n < 0) {
+            if (errno == EINTR) continue;
+            throw std::runtime_error(std::strerror(errno));
+        }
 
-        for (auto &pfd : fds) {
+        for (std::size_t i = 0; i < fds.size(); ++i) {
+            auto& pfd = fds[i];
 
-            if (pfd.revents & POLLIN) {
+            if (pfd.revents & (POLLIN | POLLHUP | POLLERR)) {
                 if (pfd.fd == serverSocket) {
                     accept_new_clients();
                 } else {
@@ -77,6 +81,10 @@ void Server::eventLoop(){
 
 void Server::accept_new_clients(){
     int clientSocket = accept(serverSocket, nullptr, nullptr);
+    if (clientSocket < 0) {
+        std::cerr << "accept: " << std::strerror(errno) << std::endl;
+        return;
+    }
 
     pollfd pfd;
     pfd.fd = clientSocket;
@@ -88,6 +96,18 @@ void Server::accept_new_clients(){
 
 void Server::handle_client(int client_fd){
     char buffer[1024] = { 0 };
-    recv(client_fd, buffer, sizeof(buffer), 0);
-    std::cout << "Message from client: " << buffer << std::endl;
+    ssize_t received = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
+    if (received > 0) {
+        buffer[received] = '\0';
+        std::cout << "Message from client: " << buffer << std::endl;
+    } else {
+        if (received < 0)
+            std::cerr << "recv: " << std::strerror(errno) << std::endl;
+        close(client_fd);
+        for (auto& pfd : fds)
+            if (pfd.fd == client_fd) pfd.fd = -1;
+        fds.erase(std::remove_if(fds.begin(), fds.end(),
+                                 [](const pollfd& pfd) { return pfd.fd < 0; }),
+                  fds.end());
+    }
 }

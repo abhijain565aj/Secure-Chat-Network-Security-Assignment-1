@@ -2,17 +2,14 @@
 #define SERVER_HPP
 
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <poll.h>
-#include <vector>
-#include <iostream>
+
 
 class Server{
     const static int MAX_EVENTS = 1024;
 
     int PORT_NO;
     sockaddr_in serverAddress;
-    int serverSocket;
+    int serverSocket = -1;
 
     std::vector<pollfd> fds;
 
