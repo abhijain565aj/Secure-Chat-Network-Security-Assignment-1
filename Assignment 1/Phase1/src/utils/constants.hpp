@@ -1,8 +1,8 @@
 #ifndef CONSTANTS_HPP
 #define CONSTANTS_HPP
 
-const int USERNAME_MAX_LENGTH = 32;
-const int USERNAME_MIN_LENGTH = 8;
+const int USERNAME_MAX_LENGTH = 8;
+const int USERNAME_MIN_LENGTH = 4;
 const int PASSWORD_MAX_LENGTH = 32;
 const int PASSWORD_MIN_LENGTH = 8;
 
