@@ -43,6 +43,16 @@ struct DHKeyPair {
     DHKeyPair& operator=(const DHKeyPair&);
 };
 
+struct DHKey {
+    BIGNUM* public_key;
+
+    DHKey();
+    ~DHKey();
+
+    DHKey(const DHKey&);
+    DHKey& operator=(const DHKey&);
+};
+
 DHKeyPair getNewKeyPair(const DHParameters& params);
 
 BIGNUM* getPublicKey(

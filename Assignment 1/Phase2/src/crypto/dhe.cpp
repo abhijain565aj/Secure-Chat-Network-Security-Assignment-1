@@ -304,4 +304,29 @@ DHE::DHParameters& DHE::DHParameters::operator=(const DHParameters& other){
         g = new_public_key;
     }
     return *this;
-}   
+}
+
+DHE::DHKey::DHKey() : public_key(nullptr) {
+}
+
+DHE::DHKey::~DHKey() {
+    BN_free(public_key);
+}
+
+DHE::DHKey::DHKey(const DHKey& other) : public_key(BN_dup(other.public_key)) {
+    if (!public_key) {
+        throw std::runtime_error("Failed to copy DHKey");
+    }
+}
+
+DHE::DHKey& DHE::DHKey::operator=(const DHKey& other) {
+    if (this != &other) {
+        BIGNUM* new_public_key = BN_dup(other.public_key);
+        if (!new_public_key) {
+            throw std::runtime_error("Failed to copy DHKey");
+        }
+        BN_free(public_key);
+        public_key = new_public_key;
+    }
+    return *this;
+}
