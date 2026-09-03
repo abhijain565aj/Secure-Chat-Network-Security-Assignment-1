@@ -88,6 +88,8 @@ void Client::handle_recv(){
             terminalUi->printOutput("Server: @" + user->get_username() + " " + user->get_message() + "\n");
         else if (auto* login = dynamic_cast<LoginMessage*>(message.get()))
             terminalUi->printOutput("Server: login " + login->get_username() + "\n");
+        else if (auto* server = dynamic_cast<ServerMessage*>(message.get()))
+            terminalUi->printOutput("Server: " + server->get_text() + "\n");
         else
             terminalUi->printOutput("Server: active users requested\n");
     } catch (const std::exception& error) {
