@@ -5,6 +5,7 @@
 #include <netinet/in.h>
 #include <poll.h>
 #include <vector>
+
 class Server{
     const static int MAX_EVENTS = 1024;
     const static int BUFFER_SIZE = 1024;

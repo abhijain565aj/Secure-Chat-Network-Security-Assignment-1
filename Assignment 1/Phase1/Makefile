@@ -1,34 +1,46 @@
-CXX:=g++-15
-CXXFLAGS:=-std=c++17 -Wall -Wextra -MMD
+CXX := g++-15
 
-OBJS = 
+CXXFLAGS := -std=c++17 -Wall -Wextra -MMD -MP
+CPPFLAGS := -Iinclude
 
-CLIENT_OBJS = client.o run_client.o
-SERVER_OBJS = server.o run_server.o
+BUILD_DIR := build
 
-RUN_CLIENT = run_client
-RUN_SERVER = run_server
+CLIENT_SRCS := $(wildcard src/client/*.cpp)
+SERVER_SRCS := $(wildcard src/server/*.cpp)
+COMMON_SRCS := $(wildcard src/common/*.cpp)
 
-DEPS = $(CLIENT_OBJS:.o=.d) $(SERVER_OBJS:.o=.d) $(OBJS:.o=.d)
+CLIENT_OBJS := $(CLIENT_SRCS:src/%.cpp=$(BUILD_DIR)/%.o)
+SERVER_OBJS := $(SERVER_SRCS:src/%.cpp=$(BUILD_DIR)/%.o)
+COMMON_OBJS := $(COMMON_SRCS:src/%.cpp=$(BUILD_DIR)/%.o)
+
+RUN_CLIENT := $(BUILD_DIR)/run_client
+RUN_SERVER := $(BUILD_DIR)/run_server
+
+DEPS := $(CLIENT_OBJS:.o=.d) \
+        $(SERVER_OBJS:.o=.d) \
+        $(COMMON_OBJS:.o=.d)
+
+.PHONY: all client server clean
 
 all: $(RUN_CLIENT) $(RUN_SERVER)
 
-server: $(RUN_SERVER)
-	./$(RUN_SERVER)
-	
 client: $(RUN_CLIENT)
 	./$(RUN_CLIENT)
 
-$(RUN_CLIENT): $(OBJS) $(CLIENT_OBJS)
-	$(CXX) $(CXXFLAGS) $^ -o $@
+server: $(RUN_SERVER)
+	./$(RUN_SERVER)
 
-$(RUN_SERVER): $(SERVER_OBJS)
-	$(CXX) $(CXXFLAGS) $^ -o $@
+$(RUN_CLIENT): $(CLIENT_OBJS) $(COMMON_OBJS)
+	$(CXX) $^ -o $@
 
-%.o : %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+$(RUN_SERVER): $(SERVER_OBJS) $(COMMON_OBJS)
+	$(CXX) $^ -o $@
+
+$(BUILD_DIR)/%.o: src/%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 
 -include $(DEPS)
 
 clean:
-	rm -f $(OBJS) $(CLIENT_OBJS) $(SERVER_OBJS) $(RUN_CLIENT) $(RUN_SERVER) *.d
+	rm -rf $(BUILD_DIR)
