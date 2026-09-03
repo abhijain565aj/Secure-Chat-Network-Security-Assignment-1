@@ -132,9 +132,9 @@ void Server::accept_new_clients(){
         throw std::runtime_error("Unknown client");
     }
     DHParametersMessage dh_params_message(dh_params);
-    handle_send(user, dh_params_message);
+    handle_send(user, dh_params_message, false);
     DHKeyMessage dh_key_message(dh_keypair.public_key);
-    handle_send(user, dh_key_message);
+    handle_send(user, dh_key_message, false);
 
     std::cout << Presentation::server_log(
         "Sent DH parameters and server public key to client (fd " +
@@ -146,6 +146,11 @@ void Server::handle_client(int client_fd){
         std::unique_ptr<Message> message = receive_message(client_fd);
         User* user = users.find_by_file_descriptor(client_fd);
         if (user == nullptr) throw std::runtime_error("Unknown client");
+
+        if(message->type() == MessageType::Ciphertext) {
+            CiphertextMsg& ciphertext_msg = static_cast<CiphertextMsg&>(*message);
+            message = ciphertext_msg.getMsg(user->get_aes_key());
+        }
         log_request(client_fd, *message);
 
         switch (message->type()) {
@@ -191,9 +196,14 @@ void Server::handle_client(int client_fd){
     }
 }
 
-void Server::handle_send(User* user, Message& message) {
+void Server::handle_send(User* user, Message& message, bool encrypt = true) {
     if (user == nullptr) throw std::runtime_error("Unknown client");
-    send_message(user->get_file_descriptor(), message);
+    if (encrypt) {
+        CiphertextMsg ciphertext_msg(message, user->get_aes_key());
+        send_message(user->get_file_descriptor(), ciphertext_msg);
+    } else {
+        send_message(user->get_file_descriptor(), message);
+    }
 }
 
 void Server::close_client(int client_fd){

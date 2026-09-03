@@ -113,6 +113,12 @@ void Client::handleInput(){
 void Client::handle_recv(){
     try {
         std::unique_ptr<Message> message = receive_message(clientSocket);
+
+        if(message->type() == MessageType::Ciphertext) {
+            CiphertextMsg& ciphertext_msg = static_cast<CiphertextMsg&>(*message);
+            message = ciphertext_msg.getMsg(server_aes_key);
+        }
+
         switch (message->type()) {
         case MessageType::User: {
             auto& user = static_cast<UserMessage&>(*message);
@@ -137,7 +143,7 @@ void Client::handle_recv(){
             dh_params = dh_params_msg.get_parameters();
             dh_keypair = DHE::getNewKeyPair(dh_params);
             DHKeyMessage dh_key_msg(dh_keypair.public_key);
-            handle_send(dh_key_msg);
+            handle_send(dh_key_msg, false);
             break;
         }
         case MessageType::DHKeyMsg:{
@@ -156,9 +162,14 @@ void Client::handle_recv(){
     }
 }
 
-void Client::handle_send(const Message& message){
+void Client::handle_send(const Message& message, bool encrypt = true){
     try {
-        send_message(clientSocket, message);
+        if(encrypt){
+            CiphertextMsg ciphertext_msg(message, server_aes_key);
+            send_message(clientSocket, ciphertext_msg);
+        } else{
+            send_message(clientSocket, message);
+        }
     } catch (const std::exception& error) {
         terminalUi->printOutput(Presentation::error_message(std::string("send: ") + error.what()));
         running = false;
