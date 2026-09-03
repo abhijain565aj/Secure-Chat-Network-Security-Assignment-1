@@ -1,6 +1,7 @@
 
 #include "server.hpp"
 #include "chat/message.hpp"
+#include "chat/protocol.hpp"
 #include <algorithm>
 #include <cerrno>
 #include <cstring>
@@ -103,7 +104,7 @@ void Server::accept_new_clients(){
         close_client(clientSocket);
         return;
     }
-    users.emplace_back(clientSocket, ipAddress, ntohs(clientAddress.sin_port));
+    users.add(User(clientSocket, ipAddress, ntohs(clientAddress.sin_port)));
     std::cout << "Client connected: " << ipAddress << ":"
               << ntohs(clientAddress.sin_port) << " (fd " << clientSocket
               << ")" << std::endl;
@@ -112,33 +113,21 @@ void Server::accept_new_clients(){
 void Server::handle_client(int client_fd){
     try {
         std::unique_ptr<Message> message = receive_message(client_fd);
-        User* user = find_user(client_fd);
+        User* user = users.find_by_file_descriptor(client_fd);
         if (user == nullptr) throw std::runtime_error("Unknown client");
 
         if (auto* login = dynamic_cast<LoginMessage*>(message.get())) {
-            user->login(login->get_username());
-            std::cout << "Login request: " << user->get_username()
-                      << " from " << user->get_ip_address() << ":"
-                      << user->get_port() << std::endl;
-            ServerMessage response("Login successful.");
-            send_message(client_fd, response);
+            handle_login(client_fd, *user, *login);
         } else if (!user->is_logged_in()) {
             ServerMessage response("Please login first.");
             send_message(client_fd, response);
         } else if (auto* userMessage = dynamic_cast<UserMessage*>(message.get())) {
-            std::cout << "Message from " << user->get_username() << ": @"
-                      << userMessage->get_username() << " "
-                      << userMessage->get_message() << std::endl;
-            User* recipient = find_user(userMessage->get_username());
-            if (recipient == nullptr || !recipient->is_logged_in()) {
-                ServerMessage response("User is not online.");
-                send_message(client_fd, response);
-            } else {
-                send_message(recipient->get_file_descriptor(), *userMessage);
-            }
+            handle_user_message(client_fd, *user, *userMessage);
+        } else if (dynamic_cast<WhoMessage*>(message.get())) {
+            handle_who(client_fd, *user);
         } else {
-            std::cout << "Who request from " << user->get_username() << std::endl;
-            send_message(client_fd, *message);
+            ServerMessage response("Unsupported message.");
+            send_message(client_fd, response);
         }
     } catch (const std::exception& error) {
         std::cerr << "message: " << error.what() << std::endl;
@@ -148,11 +137,7 @@ void Server::handle_client(int client_fd){
 
 void Server::close_client(int client_fd){
     close(client_fd);
-    users.erase(std::remove_if(users.begin(), users.end(),
-                               [client_fd](const User& user) {
-                                   return user.get_file_descriptor() == client_fd;
-                               }),
-                users.end());
+    users.remove(client_fd);
     for (auto& pfd : fds)
         if (pfd.fd == client_fd) pfd.fd = -1;
     fds.erase(std::remove_if(fds.begin(), fds.end(),
@@ -160,16 +145,36 @@ void Server::close_client(int client_fd){
               fds.end());
 }
 
-User* Server::find_user(int client_fd){
-    for (auto& user : users) {
-        if (user.get_file_descriptor() == client_fd) return &user;
+void Server::handle_login(int client_fd, User& user, const LoginMessage& message) {
+    if (users.find_logged_in(message.get_username()) != nullptr) {
+        ServerMessage response("Username is already in use.");
+        send_message(client_fd, response);
+        return;
     }
-    return nullptr;
+    user.login(message.get_username());
+    ServerMessage response("Login successful.");
+    send_message(client_fd, response);
 }
 
-User* Server::find_user(const std::string& username){
-    for (auto& user : users) {
-        if (user.is_logged_in() && user.get_username() == username) return &user;
+void Server::handle_user_message(int client_fd, User& user, const UserMessage& message) {
+    User* recipient = users.find_logged_in(message.get_username());
+    if (recipient == nullptr) {
+        ServerMessage response("Message failed: user is not online.");
+        send_message(client_fd, response);
+        return;
     }
-    return nullptr;
+    UserMessage delivered(user.get_username(), message.get_username(), message.get_message());
+    try {
+        send_message(recipient->get_file_descriptor(), delivered);
+        if (recipient->get_file_descriptor() != client_fd)
+            send_message(client_fd, delivered);
+    } catch (const std::exception&) {
+        ServerMessage response("Message failed: delivery error.");
+        send_message(client_fd, response);
+    }
+}
+
+void Server::handle_who(int client_fd, const User&) {
+    ServerMessage response("Online users:\n" + users.logged_in_usernames());
+    send_message(client_fd, response);
 }

@@ -6,7 +6,8 @@
 #include <poll.h>
 #include <vector>
 #include <string>
-#include "user.hpp"
+#include "chat/message.hpp"
+#include "user_registry.hpp"
 
 class Server{
     const static int MAX_EVENTS = 1024;
@@ -17,7 +18,7 @@ class Server{
     int serverSocket = -1;
 
     std::vector<pollfd> fds;
-    std::vector<User> users;
+    UserRegistry users;
 
 public:
     Server(int _port_no): PORT_NO(_port_no) {}
@@ -29,8 +30,9 @@ private:
     void accept_new_clients();
     void handle_client(int client_fd);
     void close_client(int client_fd);
-    User* find_user(int client_fd);
-    User* find_user(const std::string& username);
+    void handle_login(int client_fd, User& user, const LoginMessage& message);
+    void handle_user_message(int client_fd, User& user, const UserMessage& message);
+    void handle_who(int client_fd, const User& user);
 };
 
 #endif // SERVER_HPP
