@@ -47,6 +47,12 @@ Output help_message() {
         "  /quit             Disconnect and exit");
 }
 
+Output chat_switched(const std::string& username) {
+    return server_message("----------------------------------------\n"
+                          "Chat switched to @" + username + "\n"
+                          "----------------------------------------");
+}
+
 std::string server_log(const std::string& message) {
     return "\033[36m[Server]\033[0m " + message;
 }

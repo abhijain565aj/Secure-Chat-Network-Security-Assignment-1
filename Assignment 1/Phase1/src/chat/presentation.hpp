@@ -24,6 +24,7 @@ Output server_message(const std::string& message);
 Output error_message(const std::string& message);
 Output login_success(const std::string& username);
 Output help_message();
+Output chat_switched(const std::string& username);
 std::string server_log(const std::string& message);
 
 }

@@ -73,8 +73,7 @@ void Client::handleInput(){
                 return;
 			case CommandType::Chat:
                 currentChat = command.chatUsername;
-                terminalUi->printOutput(Presentation::server_message(
-                    "Chat switched to @" + currentChat));
+                terminalUi->printOutput(Presentation::chat_switched(currentChat));
                 break;
 			case CommandType::Clear:
                 terminalUi->clearOutput();

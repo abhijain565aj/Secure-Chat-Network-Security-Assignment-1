@@ -89,9 +89,7 @@ void TerminalUI::printOutput(const Presentation::Output& output) {
     case Presentation::Color::Normal: break;
     }
     wattron(outputWindow, COLOR_PAIR(colorPair));
-    if (colorPair != 0) wattron(outputWindow, A_BOLD);
     waddnstr(outputWindow, output.text.c_str(), -1);
-    if (colorPair != 0) wattroff(outputWindow, A_BOLD);
     wattroff(outputWindow, COLOR_PAIR(colorPair));
     wrefresh(outputWindow);
     refreshPrompt();
