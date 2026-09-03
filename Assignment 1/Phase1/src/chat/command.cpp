@@ -2,10 +2,10 @@
 #include <stdexcept>
 
 ParsedCommand CommandParser::parse(const std::string& input) {
-    if (input == "/quit") return {CommandType::Quit, nullptr};
-    if (input == "/who") return {CommandType::Who, std::make_unique<WhoMessage>()};
-    if (input == "/clear") return {CommandType::Clear, nullptr};
-    if (input == "/help") return {CommandType::Help, nullptr};
+    if (input == "/quit") return {CommandType::Quit, nullptr, ""};
+    if (input == "/who") return {CommandType::Who, std::make_unique<WhoMessage>(), ""};
+    if (input == "/clear") return {CommandType::Clear, nullptr, ""};
+    if (input == "/help") return {CommandType::Help, nullptr, ""};
     if (input.rfind("/chat", 0) == 0) return parse_chat(input);
 
     const std::string login_prefix = "/login ";
@@ -32,7 +32,7 @@ ParsedCommand CommandParser::parse_login(const std::string& input) {
     std::string username = input.substr(login_prefix.size());
     if (username.empty() || username.find(' ') != std::string::npos)
         throw std::runtime_error("Usage: /login username");
-    return {CommandType::Login, std::make_unique<LoginMessage>(username)};
+    return {CommandType::Login, std::make_unique<LoginMessage>(username), ""};
 }
 
 ParsedCommand CommandParser::parse_chat(const std::string& input) {
@@ -53,7 +53,8 @@ ParsedCommand CommandParser::parse_user_message(const std::string& input) {
     std::string username = input.substr(1, separator - 1);
     std::string message = input.substr(separator + 1);
     return {CommandType::UserMessage,
-            std::make_unique<UserMessage>(username, message)};
+            std::make_unique<UserMessage>(username, message),
+            ""};
 }
 
 ParsedCommand CommandParser::parse_current_chat(const std::string& input,
