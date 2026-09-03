@@ -164,7 +164,7 @@ void Server::handle_client(int client_fd){
             break;
         }
         case MessageType::Login:
-            handle_login(client_fd, *user, static_cast<LoginMessage&>(*message));
+            handle_login(*user, static_cast<LoginMessage&>(*message));
             break;
         default:
             if (!user->is_logged_in()) {
@@ -223,7 +223,7 @@ void Server::addClientPublicKey(int client_fd, DHE::DHKey public_key) {
     user->set_public_key(public_key,aes_key);
 }
 
-void Server::handle_login(int client_fd, User& user, const LoginMessage& message) {
+void Server::handle_login(User& user, const LoginMessage& message) {
     if (users.find_logged_in(message.get_username()) != nullptr) {
         ServerMessage response("Username is already in use.");
         handle_send(&user, response);

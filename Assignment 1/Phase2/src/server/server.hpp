@@ -36,7 +36,7 @@ private:
     void handle_client(int client_fd);
     void close_client(int client_fd);
     void handle_send(User* user, Message& message, bool encrypt = true);
-    void handle_login(int client_fd, User& user, const LoginMessage& message);
+    void handle_login(User& user, const LoginMessage& message);
     void handle_user_message(int client_fd, User& user, const UserMessage& message);
     void handle_who(int client_fd, const User& user);
     void log_request(int client_fd, const Message& message) const;
