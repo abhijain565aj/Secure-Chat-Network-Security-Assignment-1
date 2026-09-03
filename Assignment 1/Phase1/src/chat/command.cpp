@@ -4,6 +4,9 @@
 ParsedCommand CommandParser::parse(const std::string& input) {
     if (input == "/quit") return {CommandType::Quit, nullptr};
     if (input == "/who") return {CommandType::Who, std::make_unique<WhoMessage>()};
+    if (input == "/clear") return {CommandType::Clear, nullptr};
+    if (input == "/help") return {CommandType::Help, nullptr};
+    if (input.rfind("/chat", 0) == 0) return parse_chat(input);
 
     const std::string login_prefix = "/login ";
     if (input.rfind(login_prefix, 0) == 0) {
@@ -30,6 +33,17 @@ ParsedCommand CommandParser::parse_login(const std::string& input) {
     if (username.empty() || username.find(' ') != std::string::npos)
         throw std::runtime_error("Usage: /login username");
     return {CommandType::Login, std::make_unique<LoginMessage>(username)};
+}
+
+ParsedCommand CommandParser::parse_chat(const std::string& input) {
+    const std::string chat_prefix = "/chat ";
+    if (input.rfind(chat_prefix, 0) != 0)
+        throw std::runtime_error("Usage: /chat username");
+
+    std::string username = input.substr(chat_prefix.size());
+    if (username.empty() || username.find(' ') != std::string::npos)
+        throw std::runtime_error("Usage: /chat username");
+    return {CommandType::Chat, nullptr, username};
 }
 
 ParsedCommand CommandParser::parse_user_message(const std::string& input) {

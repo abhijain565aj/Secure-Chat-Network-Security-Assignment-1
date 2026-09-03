@@ -17,6 +17,7 @@ public:
     ~TerminalUI();
 
     bool readInput(std::string& message);
+    void clearOutput();
     void printOutput(const Presentation::Output& output);
     void printOutput(const std::string& message);
 };

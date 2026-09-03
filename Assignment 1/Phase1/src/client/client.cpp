@@ -71,6 +71,17 @@ void Client::handleInput(){
                 running = false;
                 closeConnection();
                 return;
+			case CommandType::Chat:
+                currentChat = command.chatUsername;
+                terminalUi->printOutput(Presentation::server_message(
+                    "Chat switched to @" + currentChat));
+                break;
+			case CommandType::Clear:
+                terminalUi->clearOutput();
+                break;
+			case CommandType::Help:
+                terminalUi->printOutput(Presentation::help_message());
+                break;
 			case CommandType::Login:
                 pendingUsername = static_cast<LoginMessage*>(command.message.get())->get_username();
                 handle_send(*command.message);

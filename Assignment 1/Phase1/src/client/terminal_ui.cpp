@@ -73,6 +73,12 @@ bool TerminalUI::readInput(std::string& message) {
     return submitted;
 }
 
+void TerminalUI::clearOutput() {
+    werase(outputWindow);
+    wrefresh(outputWindow);
+    refreshPrompt();
+}
+
 void TerminalUI::printOutput(const Presentation::Output& output) {
     int colorPair = 0;
     switch (output.color) {

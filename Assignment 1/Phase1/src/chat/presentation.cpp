@@ -35,6 +35,18 @@ Output login_success(const std::string& username) {
     return server_message("Hi @" + username + ", Login successful.");
 }
 
+Output help_message() {
+    return server_message(
+        "Commands:\n"
+        "  /login username   Log in to the server\n"
+        "  /chat username    Switch the local chat target\n"
+        "  @username message Send a message and switch target\n"
+        "  /who              Show online users\n"
+        "  /clear            Clear the terminal output\n"
+        "  /help             Show this help\n"
+        "  /quit             Disconnect and exit");
+}
+
 std::string server_log(const std::string& message) {
     return "\033[36m[Server]\033[0m " + message;
 }

@@ -10,12 +10,16 @@ enum class CommandType {
 	Who,
 	UserMessage,
 	CurrentChat,
+	Chat,
+	Clear,
+	Help,
 	Quit
 };
 
 struct ParsedCommand {
 	CommandType type;
 	std::unique_ptr<Message> message;
+	std::string chatUsername;
 };
 
 class CommandParser {
@@ -27,6 +31,7 @@ public:
 private:
 	static ParsedCommand parse_login(const std::string& input);
 	static ParsedCommand parse_user_message(const std::string& input);
+	static ParsedCommand parse_chat(const std::string& input);
 	static ParsedCommand parse_current_chat(const std::string& input,
 	                                       const std::string& currentChat);
 };
