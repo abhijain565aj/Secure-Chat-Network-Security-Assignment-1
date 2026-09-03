@@ -216,3 +216,13 @@ std::array<uint8_t, 32> DHE::deriveAESKey(
 
     return aes_key;
 }
+
+DHE::DHParameters::DHParameters() : p(nullptr),
+      g(nullptr){
+}
+
+DHE::DHParameters::~DHParameters()
+{
+    BN_free(p);
+    BN_free(g);
+}

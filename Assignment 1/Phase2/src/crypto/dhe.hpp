@@ -40,6 +40,14 @@ std::array<uint8_t, 32> deriveAESKey(
     const BIGNUM* p
 );
     
+struct DHParameters {
+    BIGNUM* p;
+    BIGNUM* g;
+
+    DHParameters();
+    ~DHParameters();
+};
+
 } //namespace DHE
 
 #endif
