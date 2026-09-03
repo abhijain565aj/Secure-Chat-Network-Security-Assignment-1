@@ -7,6 +7,7 @@
 #include <memory>
 #include "utils/helpers.hpp"
 #include "crypto/dhe.hpp"
+#include "crypto/aes_gcm.hpp"
 
 class PacketBuffer;
 
@@ -16,7 +17,8 @@ enum class MessageType : uint8_t {
     Who = 3,
     Server = 4, 
     DHParametersMsg = 5,
-    DHKeyMsg = 6
+    DHKeyMsg = 6,
+    Ciphertext = 7
 };
 
 class Message{
@@ -92,4 +94,17 @@ public:
     DHE::DHKey get_public_key() const { return DHE::DHKey(DHE::BytesToBIGNUM(public_key)); }
 };
 
+class CiphertextMsg : public Message {
+    AES::Ciphertext ciphertext;
+public:
+    explicit CiphertextMsg(const AES::Ciphertext& _ciphertext);
+    MessageType type() const override { return MessageType::Ciphertext; }
+    void serialize(PacketBuffer& packet) const override;
+    static std::unique_ptr<Message> deserialize(PacketBuffer& packet);
+    AES::Ciphertext get_ciphertext() const { return ciphertext; }
+
+    // New methods for encryption and decryption
+    explicit CiphertextMsg(const Message& message, const DHE::AES_KEY& aes_key);
+    std::unique_ptr<Message> getMsg(const DHE::AES_KEY& aes_key) const;
+};
 #endif

@@ -1,6 +1,7 @@
 #include "chat/message.hpp"
 #include "chat/packet_buffer.hpp"
 #include "utils/password.hpp"
+#include "protocol.hpp"
 #include <stdexcept>
 #include <utility>
 
@@ -84,4 +85,27 @@ std::unique_ptr<Message> DHKeyMessage::deserialize(PacketBuffer& packet) {
     std::vector<uint8_t> public_key;
     packet >> public_key;
     return std::make_unique<DHKeyMessage>(std::move(public_key));
+}
+
+CiphertextMsg::CiphertextMsg(const AES::Ciphertext& _ciphertext): Message(), ciphertext(std::move(_ciphertext)) {}
+
+void CiphertextMsg::serialize(PacketBuffer& packet) const {
+    packet << ciphertext.iv << ciphertext.ciphertext << ciphertext.tag;
+}
+
+std::unique_ptr<Message> CiphertextMsg::deserialize(PacketBuffer& packet) {
+    AES::Ciphertext ciphertext;
+    packet >> ciphertext.iv >> ciphertext.ciphertext >> ciphertext.tag;
+    return std::make_unique<CiphertextMsg>(std::move(ciphertext));
+}
+
+AES::Ciphertext CiphertextMsg::get_ciphertext() const { return ciphertext; }
+
+CiphertextMsg::CiphertextMsg(const Message& message, const DHE::AES_KEY& aes_key) {
+    ciphertext = AES::encrypt(aes_key, serialize_message(message));
+}
+
+std::unique_ptr<Message> CiphertextMsg::getMsg(const DHE::AES_KEY& aes_key) const {
+    auto decrypted = AES::decrypt(aes_key, ciphertext);
+    return deserialize_message(decrypted);
 }
