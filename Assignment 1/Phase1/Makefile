@@ -1,13 +1,13 @@
 CXX := g++-15
 
 CXXFLAGS := -std=c++17 -Wall -Wextra -MMD -MP
-CPPFLAGS := -Iinclude
+CPPFLAGS := -Isrc
 
 BUILD_DIR := build
 
 CLIENT_SRCS := $(wildcard src/client/*.cpp)
 SERVER_SRCS := $(wildcard src/server/*.cpp)
-COMMON_SRCS := $(wildcard src/common/*.cpp)
+COMMON_SRCS := $(wildcard src/utils/*.cpp)
 
 CLIENT_OBJS := $(CLIENT_SRCS:src/%.cpp=$(BUILD_DIR)/%.o)
 SERVER_OBJS := $(SERVER_SRCS:src/%.cpp=$(BUILD_DIR)/%.o)

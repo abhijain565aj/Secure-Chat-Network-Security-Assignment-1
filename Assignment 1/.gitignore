@@ -1,4 +1,3 @@
 *.o
 *.d
-*/run_server
-*/run_client
+*/build/
