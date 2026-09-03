@@ -3,8 +3,6 @@
 
 #include <string>
 #include <cstdint>
-#include <memory>
-#include <vector>
 #include "utils/time.hpp"
 #include "utils/password.hpp"
 
@@ -24,11 +22,14 @@ public:
 };
 
 class UserMessage : public Message{
+    std::string sender;
     std::string username;
     std::string msg;
 public:
     UserMessage(std::string _username, std::string _msg);
+    UserMessage(std::string _sender, std::string _username, std::string _msg);
     MessageType type() const override { return MessageType::User; }
+    const std::string& get_sender() const { return sender; }
     const std::string& get_username() const { return username; }
     const std::string& get_message() const { return msg; }
 };
@@ -55,10 +56,5 @@ public:
     MessageType type() const override { return MessageType::Server; }
     const std::string& get_text() const { return text; }
 };
-
-std::vector<uint8_t> serialize_message(const Message& message);
-std::unique_ptr<Message> deserialize_message(const std::vector<uint8_t>& frame);
-void send_message(int socket, const Message& message);
-std::unique_ptr<Message> receive_message(int socket);
 
 #endif
