@@ -5,6 +5,7 @@
 #include <netinet/in.h>
 #include <poll.h>
 #include <vector>
+#include <string>
 #include "user.hpp"
 
 class Server{
@@ -29,6 +30,7 @@ private:
     void handle_client(int client_fd);
     void close_client(int client_fd);
     User* find_user(int client_fd);
+    User* find_user(const std::string& username);
 };
 
 #endif // SERVER_HPP

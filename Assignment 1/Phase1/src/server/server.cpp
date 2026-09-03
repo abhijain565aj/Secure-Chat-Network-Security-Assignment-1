@@ -129,7 +129,13 @@ void Server::handle_client(int client_fd){
             std::cout << "Message from " << user->get_username() << ": @"
                       << userMessage->get_username() << " "
                       << userMessage->get_message() << std::endl;
-            send_message(client_fd, *message);
+            User* recipient = find_user(userMessage->get_username());
+            if (recipient == nullptr || !recipient->is_logged_in()) {
+                ServerMessage response("User is not online.");
+                send_message(client_fd, response);
+            } else {
+                send_message(recipient->get_file_descriptor(), *userMessage);
+            }
         } else {
             std::cout << "Who request from " << user->get_username() << std::endl;
             send_message(client_fd, *message);
@@ -157,6 +163,13 @@ void Server::close_client(int client_fd){
 User* Server::find_user(int client_fd){
     for (auto& user : users) {
         if (user.get_file_descriptor() == client_fd) return &user;
+    }
+    return nullptr;
+}
+
+User* Server::find_user(const std::string& username){
+    for (auto& user : users) {
+        if (user.is_logged_in() && user.get_username() == username) return &user;
     }
     return nullptr;
 }
