@@ -26,8 +26,8 @@ struct DHParameters {
     DHParameters();
     ~DHParameters();
 
-    DHParameters(const DHParameters&) = delete;
-    DHParameters& operator=(const DHParameters&) = delete;
+    DHParameters(const DHParameters&);
+    DHParameters& operator=(const DHParameters&);
 };
 
 DHParameters getNewDHParameters();
@@ -39,8 +39,8 @@ struct DHKeyPair {
     DHKeyPair();
     ~DHKeyPair();
     
-    DHKeyPair(const DHKeyPair&) = delete;
-    DHKeyPair& operator=(const DHKeyPair&) = delete;
+    DHKeyPair(const DHKeyPair&);
+    DHKeyPair& operator=(const DHKeyPair&);
 };
 
 DHKeyPair getNewKeyPair(const DHParameters& params);
