@@ -79,18 +79,17 @@ public:
     MessageType type() const override { return MessageType::DHParametersMsg; }
     void serialize(PacketBuffer& packet) const override;
     static std::unique_ptr<Message> deserialize(PacketBuffer& packet);
-    BIGNUM* get_b() const { return DHE::BytesToBIGNUM(b); }
-    BIGNUM* get_g() const { return DHE::BytesToBIGNUM(g); }
+    DHE::DHParameters get_parameters() const { return DHE::DHParameters(DHE::BytesToBIGNUM(b), DHE::BytesToBIGNUM(g)); }
 };
 
 class DHKeyMessage : public Message {
     std::vector<uint8_t> public_key;
 public:
-    explicit DHKeyMessage(BIGNUM* public_key);
+    explicit DHKeyMessage(DHE::DHKey public_key);
     MessageType type() const override { return MessageType::DHKeyMsg; }
     void serialize(PacketBuffer& packet) const override;
     static std::unique_ptr<Message> deserialize(PacketBuffer& packet);
-    BIGNUM* get_public_key() const { return DHE::BytesToBIGNUM(public_key); }
+    DHE::DHKey get_public_key() const { return DHE::DHKey(DHE::BytesToBIGNUM(public_key)); }
 };
 
 #endif

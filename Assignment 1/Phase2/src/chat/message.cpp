@@ -70,11 +70,11 @@ void DHParametersMessage::serialize(PacketBuffer& packet) const {
 std::unique_ptr<Message> DHParametersMessage::deserialize(PacketBuffer& packet) {
     std::vector<uint8_t> b, g;
     packet >> b >> g;
-    return std::make_unique<DHParametersMessage>(std::move(b), std::move(g));
+    return std::make_unique<DHParametersMessage>(DHE::DHParameters(DHE::BytesToBIGNUM(b), DHE::BytesToBIGNUM(g)));
 }
 
-DHKeyMessage::DHKeyMessage(BIGNUM* public_key_bn)
-    : Message(), public_key(DHE::BIGNUMToBytes(public_key_bn)) {}
+DHKeyMessage::DHKeyMessage(DHE::DHKey key)
+    : Message(), public_key(DHE::BIGNUMToBytes(key.public_key)) {}
 
 void DHKeyMessage::serialize(PacketBuffer& packet) const {
     packet << public_key;
