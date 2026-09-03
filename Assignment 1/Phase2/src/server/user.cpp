@@ -30,6 +30,10 @@ void User::login(const std::string& newUsername) {
     loggedIn = true;
 }
 
+DHE::AES_KEY User::get_aes_key() const{
+    return aes_key;
+}
+
 void User::set_public_key(DHE::DHKey& new_public_key, DHE::AES_KEY& new_aes_key) {
     public_key = std::move(new_public_key);
     aes_key = std::move(new_aes_key);

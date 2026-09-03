@@ -20,6 +20,8 @@ public:
     int get_port() const;
     const std::string& get_username() const;
     bool is_logged_in() const;
+    DHE::AES_KEY get_aes_key() const;
+    
     void login(const std::string& username);
     void set_public_key(DHE::DHKey& public_key, DHE::AES_KEY& aes_key);
 };
