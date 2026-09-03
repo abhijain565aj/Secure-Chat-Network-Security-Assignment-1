@@ -7,7 +7,7 @@
 namespace {
 bool is_message_type(uint8_t value) {
     return value >= static_cast<uint8_t>(MessageType::User) &&
-           value <= static_cast<uint8_t>(MessageType::Server);
+           value <= static_cast<uint8_t>(MessageType::Ciphertext);
 }
 }
 
