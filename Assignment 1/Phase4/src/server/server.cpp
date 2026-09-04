@@ -13,6 +13,21 @@
 #include <arpa/inet.h>
 #include "crypto/certificate.hpp"
 #include "crypto/signature.hpp"
+#include <cctype>
+
+namespace {
+std::string describe_payload(const std::string& payload) {
+    bool readable = true;
+    for (unsigned char value : payload) {
+        if (!std::isprint(value) && value != '\n' && value != '\r' && value != '\t') {
+            readable = false;
+            break;
+        }
+    }
+    return std::to_string(payload.size()) + " bytes: " +
+           (readable ? payload : "<opaque/binary data>");
+}
+}
 
 Server::Server(int _port_no, std::string certificate_directory)
     : PORT_NO(_port_no), certificateDirectory(std::move(certificate_directory)) {
@@ -322,7 +337,8 @@ void Server::handle_user_message(int client_fd, User& user, const UserMessage& m
             handle_send(&user, delivered);
         std::cout << Presentation::server_log(
             "Relayed message: " + user.get_username() + " -> @" +
-            message.get_username() + ": " + message.get_message()) << std::endl;
+            message.get_username() + " - " + describe_payload(message.get_message()))
+                  << std::endl;
     } catch (const std::exception&) {
         ServerMessage response("Message failed: delivery error.");
         handle_send(&user, response);
@@ -349,8 +365,8 @@ void Server::log_request(int client_fd, const Message& message) const {
     }
     case MessageType::User: {
         const auto& userMessage = static_cast<const UserMessage&>(message);
-        request = "message to @" + userMessage.get_username() + ": " +
-                  userMessage.get_message();
+        request = "message to @" + userMessage.get_username() + " - " +
+                  describe_payload(userMessage.get_message());
         break;
     }
     case MessageType::Who:
