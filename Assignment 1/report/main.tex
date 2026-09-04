@@ -410,7 +410,6 @@ Phase 2 protected confidentiality only against passive observers; an active prox
 % PHASE 4 TEMPLATE
 % =================================================
 \section{Phase 4 -- End-to-End Encryption Between Clients}
-\textit{Template: fill the bracketed fields after implementation/testing.}
 
 \subsection{Design}
 
@@ -429,59 +428,83 @@ Tag & Purpose \\
 \end{tabular}
 \end{center}
 
-\textbf{Implementation details to fill:} [Describe the C1--C2 DH values carried in INIT/ACK, how the E2E AES key is derived, nonce/tag format, and how per-peer session state is stored.] The server does not interpret these tags cryptographically; it only forwards the opaque routed payload.
+\texttt{INIT} and \texttt{ACK} carry only the initiator's and responder's DH public values $g^{a}$ and $g^{b}$, each encoded as a big-endian byte string and prefixed by the corresponding tag; both sides reuse the same MODP group already used for the client--server handshake and generate a fresh DH keypair for the peer session. Each client then computes the shared secret $s = g^{ab}\bmod p$ and derives the 256-bit E2E AES key as $K=\mathrm{SHA256}(\mathrm{encode}(s))$. Subsequent chat is AES-256-GCM: an \texttt{\_\_E2E\_MSG\_\_} payload is $\mathrm{IV}\,\|\,\mathrm{ciphertext}\,\|\,\mathrm{tag}$ with a 12-byte nonce and a 16-byte authentication tag. Per-peer state lives in a username-keyed map of \texttt{E2E::Session} objects (DH keypair, AES key, established flag) so concurrent chats keep independent keys. The server does not interpret these tags cryptographically; it only forwards the opaque routed payload.
 
 \subsection{Verification}
 
 \begin{figure}[H]
 \centering
-\evidencebox{Phase 4 C1 and C2 output showing matching independently computed E2E fingerprints}
+\includegraphics[width=0.6\linewidth]{images/phase4/fingerprint.png}
 \caption{C1 and C2 derive the same end-to-end key.}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\evidencebox{Phase 4 server log: readable message before E2E vs opaque payload after E2E}
-\caption{The server retains routing metadata but cannot read post-E2E chat contents.}
+\includegraphics[width=\linewidth]{images/phase4/example.png}
+\caption{\textbf{Demonstration of an End-to-End (E2E) Encrypted Chat Session.} The two clients (\texttt{abhi} and \texttt{sameer}) display the same fingerprint, confirming that they derived an identical shared secret without server involvement. The server log shows plaintext before E2E establishment but only opaque binary data afterwards, while both clients still decrypt and display the exchanged messages correctly.}
+    \label{fig:e2e_verification}
 \end{figure}
-
-\begin{figure}[H]
-\centering
-\evidencebox{Phase 4 functional test: C1 sends an E2E message and C2 decrypts/displays it}
-\caption{End-to-end encrypted messaging remains functionally correct.}
-\end{figure}
-
-\textbf{Result to fill:} [State the matching fingerprint, what the server log displayed, and the successfully received plaintext at the peer.]
 
 % =================================================
-% PHASE 5 TEMPLATE
+% PHASE 5
 % =================================================
 \section{Phase 5 -- Forward Secrecy}
-\textit{Template: fill the bracketed fields after implementation/testing.}
 
 \subsection{Rekey Design}
 
-The Phase 4 end-to-end session is automatically renegotiated every 60 seconds. Each rotation uses fresh DH private values so that the newly derived key is independent of the previous key. After both clients confirm the new key, the old key is erased and is never reused.
+Phase~5 retains the Phase~4 E2E session but periodically replaces its session key. Each client maintains one \texttt{RekeyManager} for each peer. A rotation is due 60 seconds after session establishment and 60 seconds after every completed rotation.
 
-\textbf{Simultaneous-rekey handling:} [Describe the deterministic collision-avoidance rule used when both clients initiate at nearly the same time---for example, a session/generation identifier plus a deterministic initiator tie-break. Explain why both clients converge to the same generation/key.] Ongoing chat remains usable during the transition by [describe pending-key / generation handling].
+The rotation proceeds as follows:
+
+\begin{enumerate}
+    \item The initiator generates a fresh DH keypair and sends its public value in an \texttt{\_\_E2E\_REKEY\_REQUEST\_\_}. This payload is encrypted with the \emph{current} AES key.
+    \item The responder decrypts the request, generates its own fresh DH keypair, and derives a pending key
+    \[
+    K'=\mathrm{SHA256}(\mathrm{encode}(g^{a'b'}\bmod p)).
+    \]
+    It returns its public value and the SHA-256 fingerprint of $K'$ in an old-key-encrypted response message.
+    \item The initiator derives its copy of $K'$, verifies the received fingerprint, and sends an old-key-encrypted \texttt{\_\_E2E\_REKEY\_CONFIRM\_\_} containing that fingerprint.
+    \item The responder verifies the confirmation and installs $K'$. The initiator installs $K'$ after sending the confirmation, so both endpoints move to the same new key.
+\end{enumerate}
+
+The old AES key remains active during this short handshake, so ordinary chat messages continue to decrypt correctly. Once the switch completes, the old key and pending key material are overwritten and never reused.
+
+\subsubsection{Avoiding Competing Rotations}
+
+Only the lexicographically smaller username may initiate a timer-driven rotation for a given peer; in the code, \texttt{username >= peer} skips \texttt{begin\_rekey}. In addition, a request is rejected whenever \texttt{rekeyPending} is already set. These checks prevent two simultaneous DH exchanges and ensure that both clients converge on one fingerprint-verified pending key. After a successful rotation, each client logs the local timestamp and truncated fingerprint of the new key (\texttt{xxxxxxxx...yyyyyyyy}).
 
 \subsection{Rotation Verification}
 
-\begin{figure}[H]
-\centering
-\evidencebox{Phase 5 client logs with timestamps and fingerprints for initial key, rotation 1, and rotation 2 on both C1 and C2}
-\caption{At least two rotations: fingerprint changes each time and matches across both clients.}
-\end{figure}
+The following observations verify the rotation mechanism:
+
+\begin{itemize}
+    \item At E2E session establishment, both clients print the initial key fingerprint.
+    \item Each completed rotation logs the peer, timestamp, and new key fingerprint.
+    \item For at least two rotations, the fingerprint changes from the preceding generation.
+    \item After each rotation, C1 and C2 display the same truncated fingerprint, demonstrating that they installed the same key.
+\end{itemize}
 
 \begin{figure}[H]
 \centering
-\evidencebox{Phase 5 message sent immediately after a rotation and correctly decrypted by the peer}
-\caption{Key rotation does not break the active chat session.}
+\includegraphics[width=\linewidth]{images/phase5/relay_e2e.png}
+
+\caption{\textbf{Demonstration of Phase 5 Forward Secrecy and Automatic Key Rotation.} The clients (\texttt{sameer} and \texttt{abhi}) communicate through the relay server. Their logs show the initial E2E fingerprint and two 60-second rotations, with a different but matching fingerprint at each client after every rotation. Messages sent afterwards are correctly decrypted, while the server continues to route only opaque ciphertext.}
+    \label{fig:forward_secrecy_rotation}
 \end{figure}
 
 \subsection{What Forward Secrecy Adds}
 
-\textbf{Fill in your own words:} [Explain specifically that compromise of one current E2E session key should expose only data protected under that key/generation, not messages protected under already-discarded independent keys. Contrast this with Phase 4's single long-lived E2E key, where compromise of that one key could expose all traffic encrypted under it if ciphertext had been recorded. Also state what forward secrecy does \emph{not} protect, e.g., messages encrypted under the compromised current key while it remains active.]
+Phase~4 used one long-lived E2E AES key for the entire chat. Thus, an attacker who later obtained that key and had saved ciphertext from the server or network could decrypt all earlier traffic from that session.
+
+Phase~5 limits the consequence of such a leak:
+
+\begin{itemize}
+    \item Each rotation creates an independent DH-derived key and discards the previous generation.
+    \item Compromising one current session key exposes only messages encrypted in that key's lifetime, including stored ciphertext from that window.
+    \item Earlier message generations remain protected because their DH secrets and AES keys have been discarded.
+\end{itemize}
+
+This is the forward-secrecy benefit: a later key compromise does not reveal earlier transcripts. It does not protect messages sent while the compromised key is active, nor does it help if an attacker can also obtain future keys while they are in use.
 
 % =================================================
 % APPENDIX
