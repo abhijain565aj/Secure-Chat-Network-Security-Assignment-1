@@ -227,6 +227,10 @@ void Server::addClientPublicKey(int client_fd, DHE::DHKey public_key) {
     if (user == nullptr) throw std::runtime_error("Unknown client");
     DHE::AES_KEY aes_key = DHE::deriveAESKey(
         dh_keypair.get_private_key(), public_key.get(), dh_params.get_p());
+    auto fingerprint = DHE::get_fingerprint(aes_key);
+    std::cout << Presentation::server_log(
+        "Derived AES key for client (fd " + std::to_string(client_fd) +
+        "), fingerprint: " + fingerprint.substr(0,8)+"..."+fingerprint.substr(fingerprint.length()-8)) << std::endl;
     user->set_public_key(public_key,aes_key);
 }
 

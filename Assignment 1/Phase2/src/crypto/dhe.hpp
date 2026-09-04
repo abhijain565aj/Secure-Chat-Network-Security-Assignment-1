@@ -5,7 +5,7 @@
 #include <array>            
 #include <cstdint>
 #include <vector>
-
+#include <string>
 namespace DHE{
 
 using AES_KEY = std::array<uint8_t, 32>;
@@ -74,6 +74,7 @@ AES_KEY deriveAESKey(
 );
     
 
+std::string get_fingerprint(const DHE::AES_KEY& key);
 
 } //namespace DHE
 

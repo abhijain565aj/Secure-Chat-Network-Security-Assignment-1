@@ -152,6 +152,8 @@ void Client::handle_recv(){
             server_public_key = dh_key_msg.get_public_key();
             server_aes_key = DHE::deriveAESKey(
                 dh_keypair.get_private_key(), server_public_key.get(), dh_params.get_p());
+            auto fingerprint = DHE::get_fingerprint(server_aes_key);
+            terminalUi->printOutput("Derived AES key for server, fingerprint: " + fingerprint.substr(0,8)+"..."+fingerprint.substr(fingerprint.length()-8));
             break;
         }
         default:

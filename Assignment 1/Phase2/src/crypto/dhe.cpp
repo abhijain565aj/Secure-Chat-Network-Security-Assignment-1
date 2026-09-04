@@ -3,6 +3,9 @@
 #include <openssl/evp.h>
 #include <openssl/sha.h>
 #include <stdexcept>
+#include <sstream>
+#include <string>
+#include <iomanip>
 
 static constexpr char RFC3526_GROUP14_PRIME[] =
     "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1"
@@ -269,3 +272,15 @@ DHE::DHKeyPair::DHKeyPair(DHKey private_key, DHKey public_key)
 
 BIGNUM* DHE::DHKeyPair::get_private_key() const { return private_key.get(); }
 BIGNUM* DHE::DHKeyPair::get_public_key() const { return public_key.get(); }
+
+std::string DHE::get_fingerprint(const DHE::AES_KEY& key)
+{
+    unsigned char digest[EVP_MAX_MD_SIZE];
+    unsigned int length = 0;
+    EVP_Digest(key.data(), key.size(), digest, &length, EVP_sha256(), nullptr);
+    std::ostringstream output;
+    output << std::hex << std::setfill('0');
+    for (unsigned int index = 0; index < length; ++index)
+        output << std::setw(2) << static_cast<unsigned int>(digest[index]);
+    return output.str();
+}
