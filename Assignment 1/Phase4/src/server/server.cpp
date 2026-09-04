@@ -14,20 +14,9 @@
 #include "crypto/certificate.hpp"
 #include "crypto/signature.hpp"
 #include <cctype>
-
-namespace {
-std::string describe_payload(const std::string& payload) {
-    bool readable = true;
-    for (unsigned char value : payload) {
-        if (!std::isprint(value) && value != '\n' && value != '\r' && value != '\t') {
-            readable = false;
-            break;
-        }
-    }
-    return std::to_string(payload.size()) + " bytes: " +
-           (readable ? payload : "<opaque/binary data>");
-}
-}
+#include <string>
+#include <iomanip>
+#include <sstream>
 
 Server::Server(int _port_no, std::string certificate_directory)
     : PORT_NO(_port_no), certificateDirectory(std::move(certificate_directory)) {
