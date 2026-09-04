@@ -15,6 +15,7 @@ class Client{
     const static int BUFFER_SIZE = 1024;
 
     int clientSocket;
+    std::string certificateDirectory;
     std::vector<pollfd> fds;
     sockaddr_in serverAddress;
     std::shared_ptr<TerminalUI> terminalUi;
@@ -34,7 +35,7 @@ class Client{
     EVP_PKEY* serverPublicKey;
 
 public:
-    Client();
+    explicit Client(std::string certificate_directory = "certs");
     ~Client();
     void connectToServer(std::string IP, int port);
     void eventLoop();

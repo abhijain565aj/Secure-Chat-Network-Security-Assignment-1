@@ -45,12 +45,14 @@ CERTIF_FILES := $(BUILD_DIR)/certs/ca.key \
 				 $(BUILD_DIR)/certs/server.crt \
 				 $(BUILD_DIR)/certs/server.csr
 
+GENERATOR_SCRIPT := src/crypto/generate_certs.sh
+
 .PHONY: all client server proxy clean
 
-all: $(RUN_CLIENT) $(RUN_SERVER) $(RUN_PROXY)
+all: $(RUN_CLIENT) $(RUN_SERVER) $(RUN_PROXY) $(CERTIF_FILES)
 
 client: $(RUN_CLIENT) $(CERTIF_FILES)
-	./$(RUN_CLIENT) $(SERVER_IP) $(SERVER_PORT)
+	./$(RUN_CLIENT) $(SERVER_IP) $(SERVER_PORT) $(BUILD_DIR)/certs
 
 server: $(RUN_SERVER) $(CERTIF_FILES)
 	./$(RUN_SERVER) $(SERVER_PORT) $(BUILD_DIR)/certs
@@ -59,7 +61,7 @@ proxy: $(RUN_PROXY) $(CERTIF_FILES)
 	./$(RUN_PROXY) $(PROXY_PORT) $(SERVER_IP) $(SERVER_PORT)
 
 victim-client: $(RUN_CLIENT) $(CERTIF_FILES)
-	./$(RUN_CLIENT) $(PROXY_IP) $(PROXY_PORT)
+	./$(RUN_CLIENT) $(PROXY_IP) $(PROXY_PORT) $(BUILD_DIR)/certs
 
 $(RUN_CLIENT): $(CLIENT_OBJS) $(COMMON_OBJS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) $(LDFLAGS) -o $@
@@ -74,8 +76,8 @@ $(BUILD_DIR)/%.o: src/%.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 
-$(CERTIF_FILES): $(BUILD_DIR)
-	bash src/crypto/generate_certs.sh ${BUILD_DIR}
+$(CERTIF_FILES): $(GENERATOR_SCRIPT) $(BUILD_DIR) 
+	bash $(GENERATOR_SCRIPT) ${BUILD_DIR}
 
 -include $(DEPS)
 

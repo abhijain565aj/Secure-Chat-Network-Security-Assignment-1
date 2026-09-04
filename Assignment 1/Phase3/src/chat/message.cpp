@@ -2,6 +2,7 @@
 #include "chat/packet_buffer.hpp"
 #include "utils/password.hpp"
 #include "protocol.hpp"
+#include <algorithm>
 #include <stdexcept>
 #include <utility>
 
@@ -150,7 +151,12 @@ RAMessage::RAMessage(BIGNUM* public_key, std::array<unsigned char, 32> challenge
 
 std::unique_ptr<Message> RAMessage::deserialize(PacketBuffer& packet) {
     std::vector<uint8_t> public_key;
+    std::vector<uint8_t> challenge_bytes;
+    packet >> public_key >> challenge_bytes;
+    if (challenge_bytes.size() != 32) {
+        throw std::runtime_error("Invalid handshake challenge size");
+    }
     std::array<unsigned char, 32> challenge;
-    packet >> public_key >> challenge;
+    std::copy(challenge_bytes.begin(), challenge_bytes.end(), challenge.begin());
     return std::make_unique<RAMessage>(DHE::BytesToBIGNUM(public_key), challenge);
 }

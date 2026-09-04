@@ -10,9 +10,11 @@
 #include <unistd.h>
 #include <cstring>
 #include <cerrno>
+#include <filesystem>
 
-Client::Client() : clientSocket(-1), terminalUi(std::make_shared<TerminalUI>()),
-    running(true) {}
+Client::Client(std::string certificate_directory)
+        : clientSocket(-1), certificateDirectory(std::move(certificate_directory)),
+            terminalUi(std::make_shared<TerminalUI>()), running(true) {}
 
 Client::~Client(){
     closeConnection();
@@ -202,7 +204,7 @@ void Client::validateServerCertificate(const std::vector<uint8_t>& certBytes) {
     }
     if (!Certificate::validateCertificate(
         serverCertificate,
-        "certs/ca.crt",
+        (std::filesystem::path(certificateDirectory) / "ca.crt").string(),
         "chat-server"))
     {
         X509_free(serverCertificate);

@@ -17,6 +17,7 @@ const std::unordered_map<MessageType, Decoder> DECODERS = {
     {MessageType::Server, &ServerMessage::deserialize},
     {MessageType::DHParametersMsg, &DHParametersMessage::deserialize},
     {MessageType::DHKeyMsg, &DHKeyMessage::deserialize},
+    {MessageType::RAMsg, &RAMessage::deserialize},
     {MessageType::CertificateMsg, &CertificateMessage::deserialize},
     {MessageType::BSignatureMsg, &BSignatureMessage::deserialize},
     {MessageType::Ciphertext, &CiphertextMsg::deserialize},

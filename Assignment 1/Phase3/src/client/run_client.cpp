@@ -4,16 +4,17 @@
 
 int main(int argc, char* argv[])
 {
-    if (argc > 3) {
-        std::cerr << "Usage: run_client [ip] [port]\n";
+    if (argc > 4) {
+        std::cerr << "Usage: run_client [ip] [port] [certificate-directory]\n";
         return 1;
     }
 
     try {
         std::string ip = argc >= 2 ? argv[1] : "127.0.0.1";
-        int port = argc == 3 ? parse_port(argv[2]) : 12345;
+        int port = argc >= 3 ? parse_port(argv[2]) : 12345;
+        std::string certificateDirectory = argc == 4 ? argv[3] : "certs";
 
-        Client client;
+        Client client(certificateDirectory);
         client.connectToServer(ip, port);
         client.eventLoop();
         client.closeConnection();
