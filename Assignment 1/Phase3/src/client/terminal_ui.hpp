@@ -19,6 +19,7 @@ class TerminalUI {
     void refreshScreen();
     void resizeLayout(int promptRows);
     void printDivider(const std::string& text);
+    void storeHistory(const std::string& text);
 
 public:
     TerminalUI();

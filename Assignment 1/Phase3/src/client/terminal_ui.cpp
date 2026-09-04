@@ -163,7 +163,7 @@ void TerminalUI::printOutput(const Presentation::Output& output) {
         printDivider(output.text);
         return;
     }
-    outputHistory.push_back(output.text);
+    storeHistory(output.text);
     if (getcurx(outputWindow) != 0) waddch(outputWindow, '\n');
     int colorPair = 0;
     switch (output.color) {
@@ -184,7 +184,7 @@ void TerminalUI::printOutput(const Presentation::Output& output) {
 }
 
 void TerminalUI::printDivider(const std::string& text) {
-    outputHistory.push_back(text + "\n");
+    storeHistory(text);
     if (getcurx(outputWindow) != 0) waddch(outputWindow, '\n');
 
     const int height = getmaxy(outputWindow);
@@ -219,4 +219,11 @@ void TerminalUI::printDivider(const std::string& text) {
 
 void TerminalUI::printOutput(const std::string& message) {
     printOutput({message, Presentation::Color::Normal});
+}
+
+void TerminalUI::storeHistory(const std::string& text) {
+    outputHistory.push_back(text);
+    if (outputHistory.back().empty() || outputHistory.back().back() != '\n') {
+        outputHistory.back().push_back('\n');
+    }
 }

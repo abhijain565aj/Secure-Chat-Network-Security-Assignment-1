@@ -52,7 +52,13 @@ void Client::connectToServer(std::string IP, int port){
         throw std::runtime_error(std::strerror(errno));
     }
     log_handshake("TCP connection established");
-    perform_handshake();
+    try {
+        perform_handshake();
+    } catch (const std::exception& error) {
+        log_handshake(std::string("Handshake failed: ") + error.what());
+        closeConnection();
+        throw;
+    }
     terminalUi = std::make_shared<TerminalUI>();
     flush_handshake_logs();
 }
