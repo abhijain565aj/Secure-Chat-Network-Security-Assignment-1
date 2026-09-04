@@ -17,6 +17,8 @@ Proxy::Proxy(ProxyMode mode, int listenPort, std::string serverIp, int serverPor
                          std::string certificateDirectory)
         : mode(mode), listenPort(listenPort), serverIp(std::move(serverIp)),
             serverPort(serverPort), certificateDirectory(std::move(certificateDirectory)) {}
+constexpr uint32_t MAX_FRAME_SIZE = 4096;
+
 
 Proxy::~Proxy() {
     if (listener >= 0) close(listener);
@@ -101,6 +103,13 @@ void Proxy::sendEncrypted(int socket, const Message& message,
 }
 
 void Proxy::mitm(int clientSocket, int serverSocket) {
+    if (mode == ProxyMode::Normal) {
+        std::cout << "[Proxy] Normal mode: forwarding raw frames only; "
+                     "TLS/DH and application contents are not inspected\n";
+        relay(clientSocket, serverSocket);
+        return;
+    }
+
     auto serverParameters = receive_message(serverSocket);
     auto serverCertificate = receive_message(serverSocket);
     if (serverParameters->type() != MessageType::DHParametersMsg ||
@@ -110,14 +119,6 @@ void Proxy::mitm(int clientSocket, int serverSocket) {
 
     const auto& parameters = static_cast<const DHParametersMessage&>(*serverParameters);
     auto clientParameters = parameters.get_parameters();
-    if (mode == ProxyMode::Normal) {
-        send_message(clientSocket, *serverParameters);
-        send_message(clientSocket, *serverCertificate);
-        std::cout << "[Proxy] Normal mode forwarding the server certificate and "
-                     "encrypted traffic\n";
-        relay(clientSocket, serverSocket);
-        return;
-    }
     if (mode == ProxyMode::Thief) {
         send_message(clientSocket, *serverParameters);
         send_message(clientSocket, *serverCertificate);
@@ -192,6 +193,13 @@ void Proxy::mitm(int clientSocket, int serverSocket) {
             if (!(sockets[index].revents & (POLLIN | POLLHUP | POLLERR))) continue;
 
             auto encrypted = receive_message(sockets[index].fd);
+    if (mode == ProxyMode::Normal) {
+        std::cout << "  Normal: transparent raw-frame relay; cannot inspect or decrypt content\n";
+    } else if (mode == ProxyMode::Fake) {
+        std::cout << "  Fake: presents proxy-certs and can decrypt traffic if the client trusts its CA\n";
+    } else {
+        std::cout << "  Thief: presents the stolen certificate but cannot sign without the server private key\n";
+    }
             if (encrypted->type() != MessageType::Ciphertext) {
                 throw std::runtime_error("Expected encrypted application message");
             }
