@@ -10,6 +10,7 @@ enum class CommandType {
 	Who,
 	UserMessage,
 	CurrentChat,
+	E2E,
 	Chat,
 	Clear,
 	Help,

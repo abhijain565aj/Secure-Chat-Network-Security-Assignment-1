@@ -6,6 +6,15 @@ ParsedCommand CommandParser::parse(const std::string& input) {
     if (input == "/who") return {CommandType::Who, std::make_unique<WhoMessage>(), ""};
     if (input == "/clear") return {CommandType::Clear, nullptr, ""};
     if (input == "/help") return {CommandType::Help, nullptr, ""};
+    if (input.rfind("/e2e", 0) == 0) {
+        const std::string prefix = "/e2e ";
+        if (input.rfind(prefix, 0) != 0)
+            throw std::runtime_error("Usage: /e2e username");
+        std::string username = input.substr(prefix.size());
+        if (username.empty() || username.find(' ') != std::string::npos)
+            throw std::runtime_error("Usage: /e2e username");
+        return {CommandType::E2E, nullptr, username};
+    }
     if (input.rfind("/chat", 0) == 0) return parse_chat(input);
 
     const std::string login_prefix = "/login ";
