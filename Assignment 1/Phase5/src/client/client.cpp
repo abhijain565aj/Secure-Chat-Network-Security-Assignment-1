@@ -302,12 +302,15 @@ void Client::handle_e2e_message(const UserMessage& message) {
     if (has_tag(payload, E2E::INIT_TAG)) {
         E2E::Session session(dh_params);
         const std::string ack = session.accept_init(payload);
+        const auto fingerprint = session.key_fingerprint();
         e2eSessions.insert_or_assign(peerUsername, std::move(session));
         rekeyManagers.insert_or_assign(peerUsername, RekeyManager{});
         UserMessage response(peerUsername, ack);
         handle_send(response);
         terminalUi->printOutput(Presentation::server_message(
-            "E2E session established with @" + peerUsername));
+            "E2E session established with @" + peerUsername +
+            ", fingerprint: " + fingerprint.substr(0, 8) + "..." +
+            fingerprint.substr(fingerprint.size() - 8)));
         return;
     }
     auto session = e2eSessions.find(peerUsername);
@@ -332,8 +335,11 @@ void Client::handle_e2e_message(const UserMessage& message) {
     }
     if (has_tag(payload, E2E::ACK_TAG)) {
         session->second.accept_ack(payload);
+        const auto fingerprint = session->second.key_fingerprint();
         terminalUi->printOutput(Presentation::server_message(
-            "E2E session established with @" + peerUsername));
+            "E2E session established with @" + peerUsername +
+            ", fingerprint: " + fingerprint.substr(0, 8) + "..." +
+            fingerprint.substr(fingerprint.size() - 8)));
         return;
     }
     if (has_tag(payload, E2E::MESSAGE_TAG)) {

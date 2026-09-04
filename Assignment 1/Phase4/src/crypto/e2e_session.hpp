@@ -27,12 +27,14 @@ public:
 
     std::string encrypt(const std::string& plaintext) const;
     std::string decrypt(const std::string& payload) const;
+    std::string key_fingerprint() const;
     bool is_established() const { return established; }
 
 private:
     void derive_key(const std::string& peer_public_key);
     static std::string public_key_bytes(const DHE::DHKeyPair& keypair);
     static std::vector<uint8_t> bytes(const std::string& value);
+    static std::string fingerprint(const DHE::AES_KEY& key);
 };
 
 }

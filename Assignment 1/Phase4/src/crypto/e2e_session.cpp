@@ -1,4 +1,7 @@
 #include "e2e_session.hpp"
+#include <openssl/evp.h>
+#include <iomanip>
+#include <sstream>
 #include <stdexcept>
 
 namespace {
@@ -17,6 +20,19 @@ std::string E2E::Session::public_key_bytes(const DHE::DHKeyPair& pair) {
 std::vector<uint8_t> E2E::Session::bytes(const std::string& value) {
     return std::vector<uint8_t>(value.begin(), value.end());
 }
+
+std::string E2E::Session::fingerprint(const DHE::AES_KEY& key) {
+    unsigned char digest[EVP_MAX_MD_SIZE];
+    unsigned int length = 0;
+    EVP_Digest(key.data(), key.size(), digest, &length, EVP_sha256(), nullptr);
+    std::ostringstream output;
+    output << std::hex << std::setfill('0');
+    for (unsigned int index = 0; index < length; ++index)
+        output << std::setw(2) << static_cast<unsigned int>(digest[index]);
+    return output.str();
+}
+
+std::string E2E::Session::key_fingerprint() const { return fingerprint(aesKey); }
 
 std::string E2E::Session::begin() {
     keypair = DHE::getNewKeyPair(parameters);
