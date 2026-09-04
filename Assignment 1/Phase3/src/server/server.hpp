@@ -15,6 +15,7 @@ class Server{
     const static int BUFFER_SIZE = 1024;
 
     int PORT_NO;
+    std::string certificateDirectory;
     sockaddr_in serverAddress;
     int serverSocket = -1;
 
@@ -28,7 +29,7 @@ class Server{
     EVP_PKEY* serverPrivateKey;
 
 public:
-    explicit Server(int _port_no);
+    explicit Server(int _port_no, std::string certificate_directory = "certs");
     ~Server();
     void startServer();
     void stopServer();

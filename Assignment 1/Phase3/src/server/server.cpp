@@ -9,19 +9,22 @@
 #include <stdexcept>
 #include <unistd.h>
 #include <iostream>
+#include <filesystem>
 #include <arpa/inet.h>
 #include "crypto/certificate.hpp"
 #include "crypto/signature.hpp"
 
-Server::Server(int _port_no): PORT_NO(_port_no) {
+Server::Server(int _port_no, std::string certificate_directory)
+    : PORT_NO(_port_no), certificateDirectory(std::move(certificate_directory)) {
+    const std::filesystem::path certificatePath(certificateDirectory);
     serverCertificate =
         Certificate::loadCertificate(
-            "certs/server.crt"
+            (certificatePath / "server.crt").string()
         );
 
     serverPrivateKey =
         Signature::loadPrivateKey(
-            "certs/server.key"
+            (certificatePath / "server.key").string()
         );
 
     if (!serverCertificate || !serverPrivateKey) {
@@ -152,7 +155,7 @@ void Server::accept_new_clients(){
 
     auto certificate =
         Certificate::readCertificateBytes(
-            "certs/server.crt"
+            (std::filesystem::path(certificateDirectory) / "server.crt").string()
         );
 
     // send the DH parameters and server certificate to the client

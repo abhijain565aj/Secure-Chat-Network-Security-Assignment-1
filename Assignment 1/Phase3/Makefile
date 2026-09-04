@@ -53,7 +53,7 @@ client: $(RUN_CLIENT) $(CERTIF_FILES)
 	./$(RUN_CLIENT) $(SERVER_IP) $(SERVER_PORT)
 
 server: $(RUN_SERVER) $(CERTIF_FILES)
-	./$(RUN_SERVER) $(SERVER_PORT)
+	./$(RUN_SERVER) $(SERVER_PORT) $(BUILD_DIR)/certs
 
 proxy: $(RUN_PROXY) $(CERTIF_FILES)
 	./$(RUN_PROXY) $(PROXY_PORT) $(SERVER_IP) $(SERVER_PORT)
@@ -75,7 +75,7 @@ $(BUILD_DIR)/%.o: src/%.cpp
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 
 $(CERTIF_FILES): $(BUILD_DIR)
-	bash src/ca/generate_certs.sh ${BUILD_DIR}
+	bash src/crypto/generate_certs.sh ${BUILD_DIR}
 
 -include $(DEPS)
 

@@ -4,14 +4,15 @@
 
 int main(int argc, char* argv[])
 {
-    if (argc > 2) {
-        std::cerr << "Usage: run_server [port]\n";
+    if (argc > 3) {
+        std::cerr << "Usage: run_server [port] [certificate-directory]\n";
         return 1;
     }
 
     try {
-        int port = argc == 2 ? parse_port(argv[1]) : 12345;
-        Server server(port);
+        int port = argc >= 2 ? parse_port(argv[1]) : 12345;
+        std::string certificateDirectory = argc == 3 ? argv[2] : "certs";
+        Server server(port, certificateDirectory);
         server.startServer();
         server.eventLoop();
         server.stopServer();
