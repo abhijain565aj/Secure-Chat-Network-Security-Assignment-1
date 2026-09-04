@@ -241,6 +241,9 @@ void Server::handle_RAMessage(User* user, const RAMessage& ra_msg) {
         serverPrivateKey,
         transcript
     );
+
+    BSignatureMessage response(B_bytes, std::move(signature));
+    handle_send(user, response, false);
 }
 
 void Server::handle_send(User* user, Message& message, bool encrypt) {

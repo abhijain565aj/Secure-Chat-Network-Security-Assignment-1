@@ -27,6 +27,8 @@ class Client{
     DHE::DHKeyPair dh_keypair;
     DHE::DHKey server_public_key;
     DHE::AES_KEY server_aes_key;
+    std::array<uint8_t, 32> handshake_challenge{};
+    bool secureChannelEstablished = false;
 
     X509* serverCertificate;
     EVP_PKEY* serverPublicKey;
@@ -42,6 +44,7 @@ private:
     void handleInput();
     void handle_recv();
     void handle_send(const Message& message, bool encrypt = true);
+    void handle_signature_message(const BSignatureMessage& message);
     void validateServerCertificate(const std::vector<uint8_t>& certBytes);
 };
 

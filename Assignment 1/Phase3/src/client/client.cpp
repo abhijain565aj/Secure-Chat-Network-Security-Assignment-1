@@ -3,6 +3,7 @@
 #include "chat/protocol.hpp"
 #include "chat/presentation.hpp"
 #include "crypto/certificate.hpp"
+#include "crypto/signature.hpp"
 #include <openssl/x509.h>
 #include <arpa/inet.h>
 #include <stdexcept>
@@ -151,6 +152,11 @@ void Client::handle_recv(){
             server_public_key = dh_key_msg.get_public_key();
             server_aes_key = DHE::deriveAESKey(
                 dh_keypair.get_private_key(), server_public_key.get(), dh_params.get_p());
+            secureChannelEstablished = true;
+            break;
+        }
+        case MessageType::BSignatureMsg: {
+            handle_signature_message(static_cast<const BSignatureMessage&>(*message));
             break;
         }
         case MessageType::CertificateMsg: {
@@ -166,6 +172,26 @@ void Client::handle_recv(){
         running = false;
         closeConnection();
     }
+}
+
+void Client::handle_signature_message(const BSignatureMessage& message) {
+    const auto& serverPublicKeyBytes = message.get_public_key_bytes();
+    const char* version = "MYCHAT-HANDSHAKE-V1";
+    std::vector<uint8_t> transcript(version, version + strlen(version));
+    transcript.insert(transcript.end(), handshake_challenge.begin(),
+                      handshake_challenge.end());
+    auto clientPublicKeyBytes = DHE::BIGNUMToBytes(dh_keypair.get_public_key());
+    transcript.insert(transcript.end(), clientPublicKeyBytes.begin(),
+                      clientPublicKeyBytes.end());
+    transcript.insert(transcript.end(), serverPublicKeyBytes.begin(),
+                      serverPublicKeyBytes.end());
+
+    if (!Signature::verify(serverPublicKey, transcript, message.get_signature()))
+        throw std::runtime_error("Server handshake signature verification failed");
+
+    server_public_key = DHE::DHKey(DHE::BytesToBIGNUM(serverPublicKeyBytes));
+    server_aes_key = DHE::deriveAESKey(
+        dh_keypair.get_private_key(), server_public_key.get(), dh_params.get_p());
 }
 
 void Client::validateServerCertificate(const std::vector<uint8_t>& certBytes) {
@@ -196,11 +222,14 @@ void Client::validateServerCertificate(const std::vector<uint8_t>& certBytes) {
     }
 
     auto R = DHE::generateChallenge();
+    handshake_challenge = R;
     RAMessage ra_msg(dh_keypair.get_public_key(), R);
     handle_send(ra_msg, false);
 }
 
 void Client::handle_send(const Message& message, bool encrypt){
+    if (encrypt && !secureChannelEstablished)
+        throw std::runtime_error("Secure channel is not established");
     try {
         if(encrypt){
             CiphertextMsg ciphertext_msg(message, server_aes_key);

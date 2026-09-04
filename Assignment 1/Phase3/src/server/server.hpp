@@ -28,7 +28,7 @@ class Server{
     EVP_PKEY* serverPrivateKey;
 
 public:
-    Server(int _port_no): PORT_NO(_port_no) {}
+    explicit Server(int _port_no);
     ~Server();
     void startServer();
     void stopServer();
