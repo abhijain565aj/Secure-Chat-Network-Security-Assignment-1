@@ -52,7 +52,7 @@ server: $(RUN_SERVER)
 proxy: $(RUN_PROXY)
 	./$(RUN_PROXY) $(PROXY_PORT) $(SERVER_IP) $(SERVER_PORT)
 
-proxy-client: $(RUN_CLIENT)
+victim-client: $(RUN_CLIENT)
 	./$(RUN_CLIENT) $(PROXY_IP) $(PROXY_PORT)
 
 $(RUN_CLIENT): $(CLIENT_OBJS) $(COMMON_OBJS)
