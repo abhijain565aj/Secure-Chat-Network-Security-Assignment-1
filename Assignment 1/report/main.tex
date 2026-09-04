@@ -59,9 +59,29 @@
 
 \section{Experimental Topology}
 
-The required four-node setup is used for attack demonstrations: one server, two clients, and a separate Mallory node for the MITM proxy. Though over adresses support multiple clients and multiple proxies.
+The required four-node setup is utilized for attack demonstrations, consisting of one server, two clients, and a separate Mallory node for the MITM proxy. Because our system architecture is fully open and supports connecting any number of clients and proxies dynamically, we did not rely on a single, static set of virtual machines for all phases. 
 
-We use Makefile targets to launch the server, clients, and proxy in separate terminal windows. The server listens on ServerIP:ServerPort, while C1 and C2 connect to that address. Mallory is configured with its own IP and the server's IP for MITM operation. Anything can be run with any combination of IP addresses, port which can be specified by passing relevant arguments to the Makefile targets.
+Instead, testing and packet captures were conducted across a combination of different Docker containers, virtual machines, and physical laptops. Utilizing Docker containers provided distinct, routable IP addresses on a virtual bridge network (e.g., the \texttt{172.28.x.x} subnet), which completely fulfills the assignment's requirement to demonstrate authentic network traffic and packet interception without relying solely on local loopback. 
+
+We use \texttt{Makefile} targets to launch the server, clients, and proxy. The server listens on a specified \texttt{ServerIP:ServerPort}, while the clients connect to that address. Mallory is configured with its own distinct IP and the server's IP for MITM operation. The system can be run with any combination of IP addresses and ports by passing the relevant arguments to the \texttt{Makefile} targets.
+
+To assist with grading and correlating the Wireshark captures with our network layout, below is the representative topology mapping of the node roles and IP addresses used during the containerized network demonstrations:
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{@{}ll@{}}
+    \toprule
+    \textbf{Node Role} & \textbf{IP Address (Docker Bridge Network)} \\
+    \midrule
+    Server ($S$) & \texttt{172.28.0.12} \\
+    Client 1 ($C1$) & \texttt{172.28.0.10} \\
+    Client 2 ($C2$) & \texttt{172.28.0.11} \\
+    Mallory / Proxy ($M$) & \texttt{172.28.0.18} \\
+    \bottomrule
+    \end{tabular}
+\end{table}
+
+\textit{Note: While the cryptographic and wire-level verifications (Wireshark) were strictly executed across the isolated container network shown above, some UI demonstration screenshots may depict \texttt{127.0.0.1} as they were captured during parallel rapid-iteration testing on local host interfaces.}
 
 \begin{figure}[H]
     \centering
@@ -512,18 +532,23 @@ This is the forward-secrecy benefit: a later key compromise does not reveal earl
 \appendix
 \section{Generative AI Prompt Log}
 
-The assignment requires all prompts used with generative AI to be documented. Add the exact prompts used during implementation/report preparation. A compact format is sufficient.
+The assignment requires all prompts used with generative AI to be documented. To maintain a compact format while providing full transparency, the complete conversation transcripts for major architectural and conceptual queries have been provided via shared links below.
 
-\begin{center}
-\begin{tabular}{@{}p{0.14\linewidth}p{0.16\linewidth}p{0.61\linewidth}@{}}
-\toprule
-Date & Phase & Prompt \\
-\midrule
-\texttt{<date>} & \texttt{<phase>} & \texttt{<paste exact prompt>} \\
-\texttt{<date>} & \texttt{<phase>} & \texttt{<paste exact prompt>} \\
-\texttt{<date>} & \texttt{<phase>} & \texttt{<paste exact prompt>} \\
-\bottomrule
-\end{tabular}
-\end{center}
+\subsection*{ChatGPT \& Gemini Conversations}
+\begin{itemize}
+    \item \textbf{ChatGPT Session 1:} \url{https://chatgpt.com/share/6a9b0654-8c80-83ee-8e3f-2622d63aa401}
+    \item \textbf{ChatGPT Session 2:} \url{https://chatgpt.com/share/6a9b066f-1a10-83ee-b55d-270e5c908648}
+    \item \textbf{Gemini Session 1:} \url{https://share.gemini.google/B1MyfqSHY1Oj}
+    \item \textbf{Gemini Session 2:} \url{https://share.gemini.google/adG0N6tk50ko}
+    \item \textbf{Gemini Session 3:} \url{https://share.gemini.google/FFNaJH599q77}
+\end{itemize}
+
+\subsection*{GitHub Copilot Usage}
+GitHub Copilot was actively used within the IDE throughout the development of all phases. Due to the ephemeral and fragmented nature of in-editor chat and autocomplete data, a raw prompt export is unavailable. Its usage primarily consisted of:
+\begin{itemize}
+    \item Routine coding, standard library syntax assistance, and auto-completion.
+    \item Inline debugging and error resolution.
+    \item Assistance in designing and formatting the terminal UI for the chat client.
+\end{itemize}
 
 \end{document}
