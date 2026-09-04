@@ -20,6 +20,13 @@ namespace {
 bool has_tag(const std::string& value, const char* tag) {
     return value.rfind(tag, 0) == 0;
 }
+
+bool is_e2e_control_payload(const std::string& payload) {
+    return has_tag(payload, E2E::INIT_TAG) || has_tag(payload, E2E::ACK_TAG) ||
+           has_tag(payload, E2E::REKEY_REQUEST_TAG) ||
+           has_tag(payload, E2E::REKEY_RESPONSE_TAG) ||
+           has_tag(payload, E2E::REKEY_CONFIRM_TAG);
+}
 }
 
 Client::Client(std::string certificate_directory)
@@ -212,12 +219,8 @@ void Client::handle_recv(){
         switch (message->type()) {
         case MessageType::User: {
             auto& user = static_cast<UserMessage&>(*message);
-                if (has_tag(user.get_message(), E2E::INIT_TAG) ||
-                    has_tag(user.get_message(), E2E::ACK_TAG) ||
-                    has_tag(user.get_message(), E2E::MESSAGE_TAG) ||
-                    has_tag(user.get_message(), E2E::REKEY_REQUEST_TAG) ||
-                    has_tag(user.get_message(), E2E::REKEY_RESPONSE_TAG) ||
-                    has_tag(user.get_message(), E2E::REKEY_CONFIRM_TAG)) {
+                if (is_e2e_control_payload(user.get_message()) ||
+                    has_tag(user.get_message(), E2E::MESSAGE_TAG)) {
                     handle_e2e_message(user);
                     break;
                 }
@@ -294,11 +297,7 @@ void Client::handle_e2e_message(const UserMessage& message) {
     const bool isOwnEcho = message.get_sender() == username;
     const std::string& peerUsername = isOwnEcho
         ? message.get_username() : message.get_sender();
-    if (isOwnEcho &&
-        (has_tag(payload, E2E::INIT_TAG) || has_tag(payload, E2E::ACK_TAG) ||
-         has_tag(payload, E2E::REKEY_REQUEST_TAG) ||
-         has_tag(payload, E2E::REKEY_RESPONSE_TAG) ||
-         has_tag(payload, E2E::REKEY_CONFIRM_TAG)))
+    if (isOwnEcho && is_e2e_control_payload(payload))
         return;
     if (has_tag(payload, E2E::INIT_TAG)) {
         E2E::Session session(dh_params);
