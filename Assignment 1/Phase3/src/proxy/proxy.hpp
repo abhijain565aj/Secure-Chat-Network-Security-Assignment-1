@@ -5,15 +5,19 @@
 #include <string>
 
 class Message;
+enum class ProxyMode { Normal, Fake, Thief };
 
 class Proxy {
+    ProxyMode mode;
     int listenPort;
     std::string serverIp;
     int serverPort;
+    std::string certificateDirectory;
     int listener = -1;
 
 public:
-    Proxy(int listenPort, std::string serverIp, int serverPort);
+        Proxy(ProxyMode mode, int listenPort, std::string serverIp, int serverPort,
+            std::string certificateDirectory = "build/proxy-certs");
     ~Proxy();
 
     void run();
@@ -22,6 +26,7 @@ private:
     void acceptConnections();
     void handleConnection(int clientSocket);
     void mitm(int clientSocket, int serverSocket);
+    void relay(int clientSocket, int serverSocket);
 
     static int createListener(int port);
     static int connectToServer(const std::string& ip, int port);

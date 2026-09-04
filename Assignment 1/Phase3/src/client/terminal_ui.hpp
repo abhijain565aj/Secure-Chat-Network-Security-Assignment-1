@@ -3,6 +3,7 @@
 
 #include <ncurses.h>
 #include <string>
+#include <vector>
 #include "chat/presentation.hpp"
 
 class TerminalUI {
@@ -12,6 +13,7 @@ class TerminalUI {
     bool colorsEnabled;
     int terminalRows;
     int terminalColumns;
+    std::vector<std::string> outputHistory;
 
     void refreshPrompt();
     void resizeLayout(int promptRows);

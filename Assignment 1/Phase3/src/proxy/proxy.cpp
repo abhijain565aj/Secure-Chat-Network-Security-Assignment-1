@@ -1,17 +1,22 @@
 #include "proxy.hpp"
 #include "chat/message.hpp"
 #include "chat/protocol.hpp"
+#include "crypto/certificate.hpp"
+#include "crypto/signature.hpp"
 #include <arpa/inet.h>
 #include <cerrno>
 #include <cstring>
 #include <iostream>
+#include <filesystem>
 #include <poll.h>
 #include <stdexcept>
 #include <sys/socket.h>
 #include <unistd.h>
 
-Proxy::Proxy(int listenPort, std::string serverIp, int serverPort)
-    : listenPort(listenPort), serverIp(std::move(serverIp)), serverPort(serverPort) {}
+Proxy::Proxy(ProxyMode mode, int listenPort, std::string serverIp, int serverPort,
+                         std::string certificateDirectory)
+        : mode(mode), listenPort(listenPort), serverIp(std::move(serverIp)),
+            serverPort(serverPort), certificateDirectory(std::move(certificateDirectory)) {}
 
 Proxy::~Proxy() {
     if (listener >= 0) close(listener);
@@ -97,34 +102,80 @@ void Proxy::sendEncrypted(int socket, const Message& message,
 
 void Proxy::mitm(int clientSocket, int serverSocket) {
     auto serverParameters = receive_message(serverSocket);
-    auto serverKeyMessage = receive_message(serverSocket);
+    auto serverCertificate = receive_message(serverSocket);
     if (serverParameters->type() != MessageType::DHParametersMsg ||
-        serverKeyMessage->type() != MessageType::DHKeyMsg) {
+        serverCertificate->type() != MessageType::CertificateMsg) {
         throw std::runtime_error("Unexpected server handshake");
     }
 
     const auto& parameters = static_cast<const DHParametersMessage&>(*serverParameters);
     auto clientParameters = parameters.get_parameters();
-    auto mitmKeyPair = DHE::getNewKeyPair(clientParameters);
-    const auto& serverKey = static_cast<const DHKeyMessage&>(*serverKeyMessage);
-    auto serverPublicKey = serverKey.get_public_key();
-    DHE::AES_KEY serverAesKey = DHE::deriveAESKey(
-        mitmKeyPair.get_private_key(), serverPublicKey.get(), clientParameters.get_p());
-
-    send_message(clientSocket, *serverParameters);
-    auto clientKeyMessage = receive_message(clientSocket);
-    if (clientKeyMessage->type() != MessageType::DHKeyMsg) {
-        throw std::runtime_error("Unexpected client handshake");
+    if (mode == ProxyMode::Normal) {
+        send_message(clientSocket, *serverParameters);
+        send_message(clientSocket, *serverCertificate);
+        std::cout << "[Proxy] Normal mode forwarding the server certificate and "
+                     "encrypted traffic\n";
+        relay(clientSocket, serverSocket);
+        return;
+    }
+    if (mode == ProxyMode::Thief) {
+        send_message(clientSocket, *serverParameters);
+        send_message(clientSocket, *serverCertificate);
+        auto clientRequest = receive_message(clientSocket);
+        if (clientRequest->type() != MessageType::RAMsg)
+            throw std::runtime_error("Unexpected client handshake");
+        throw std::runtime_error(
+            "Thief mode cannot sign B,signature: stolen certificate has no "
+            "server private key");
     }
 
-    const auto& clientKey = static_cast<const DHKeyMessage&>(*clientKeyMessage);
-    auto clientPublicKey = clientKey.get_public_key();
-    DHE::AES_KEY clientAesKey = DHE::deriveAESKey(
-        mitmKeyPair.get_private_key(), clientPublicKey.get(), clientParameters.get_p());
+    const auto certificatePath = std::filesystem::path(certificateDirectory);
+    auto proxyCertificateBytes =
+        Certificate::readCertificateBytes((certificatePath / "server.crt").string());
+    auto proxyPrivateKey =
+        Signature::loadPrivateKey((certificatePath / "server.key").string());
+    if (proxyCertificateBytes.empty() || proxyPrivateKey == nullptr)
+        throw std::runtime_error("Failed to load proxy certificate and private key");
 
-    DHKeyMessage mitmPublicKey(mitmKeyPair.get_public_key());
-    send_message(serverSocket, mitmPublicKey);
-    send_message(clientSocket, mitmPublicKey);
+    auto serverKeyPair = DHE::getNewKeyPair(clientParameters);
+    auto serverChallenge = DHE::generateChallenge();
+    RAMessage serverRequest(serverKeyPair.get_public_key(), serverChallenge);
+    send_message(serverSocket, serverRequest);
+    auto serverResponse = receive_message(serverSocket);
+    if (serverResponse->type() != MessageType::BSignatureMsg)
+        throw std::runtime_error("Unexpected server handshake response");
+    const auto& serverSignature = static_cast<const BSignatureMessage&>(*serverResponse);
+    auto serverPublicKey = DHE::DHKey(
+        DHE::BytesToBIGNUM(serverSignature.get_public_key_bytes()));
+    DHE::AES_KEY serverAesKey = DHE::deriveAESKey(
+        serverKeyPair.get_private_key(), serverPublicKey.get(), clientParameters.get_p());
+
+    send_message(clientSocket, *serverParameters);
+    CertificateMessage fakeCertificate(proxyCertificateBytes);
+    send_message(clientSocket, fakeCertificate);
+    auto clientRequest = receive_message(clientSocket);
+    if (clientRequest->type() != MessageType::RAMsg)
+        throw std::runtime_error("Unexpected client handshake");
+    const auto& clientHandshake = static_cast<const RAMessage&>(*clientRequest);
+    auto clientKeyPair = DHE::getNewKeyPair(clientParameters);
+    auto clientBBytes = DHE::BIGNUMToBytes(clientKeyPair.get_public_key());
+    std::vector<uint8_t> transcript;
+    const char* version = "MYCHAT-HANDSHAKE-V1";
+    transcript.insert(transcript.end(), version, version + strlen(version));
+    transcript.insert(transcript.end(), clientHandshake.get_challenge().begin(),
+                      clientHandshake.get_challenge().end());
+    transcript.insert(transcript.end(), clientHandshake.get_public_key_bytes().begin(),
+                      clientHandshake.get_public_key_bytes().end());
+    transcript.insert(transcript.end(), clientBBytes.begin(), clientBBytes.end());
+    auto clientSignature = Signature::sign(proxyPrivateKey, transcript);
+    BSignatureMessage fakeResponse(clientBBytes, std::move(clientSignature));
+    send_message(clientSocket, fakeResponse);
+    auto clientPublicKey = clientHandshake.get_public_key();
+    DHE::AES_KEY clientAesKey = DHE::deriveAESKey(
+        clientKeyPair.get_private_key(), clientPublicKey.get(), clientParameters.get_p());
+    EVP_PKEY_free(proxyPrivateKey);
+    std::cout << "[Proxy] Fake mode presented proxy-certs/server.crt and "
+                 "established separate client/server channels\n";
 
     pollfd sockets[] = {
         {clientSocket, POLLIN, 0},
@@ -156,6 +207,24 @@ void Proxy::mitm(int clientSocket, int serverSocket) {
     }
 }
 
+void Proxy::relay(int clientSocket, int serverSocket) {
+    pollfd sockets[] = {
+        {clientSocket, POLLIN, 0},
+        {serverSocket, POLLIN, 0}
+    };
+    while (true) {
+        if (poll(sockets, 2, -1) < 0) {
+            if (errno == EINTR) continue;
+            throw std::runtime_error(std::strerror(errno));
+        }
+        for (int index = 0; index < 2; ++index) {
+            if (!(sockets[index].revents & (POLLIN | POLLHUP | POLLERR))) continue;
+            auto message = receive_message(sockets[index].fd);
+            send_message(index == 0 ? serverSocket : clientSocket, *message);
+        }
+    }
+}
+
 void Proxy::handleConnection(int clientSocket) {
     try {
         int serverSocket = connectToServer(serverIp, serverPort);
@@ -181,7 +250,10 @@ void Proxy::acceptConnections() {
 
 void Proxy::run() {
     listener = createListener(listenPort);
-    std::cout << "Proxy listening on port " << listenPort
+    const char* modeName = mode == ProxyMode::Normal ? "normal"
+        : mode == ProxyMode::Fake ? "fake" : "thief";
+    std::cout << "Proxy (" << modeName
+              << ") listening on port " << listenPort
               << ", forwarding to " << serverIp << ':' << serverPort << '\n';
     acceptConnections();
 }

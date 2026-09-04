@@ -38,6 +38,8 @@ SERVER_IP := "127.0.0.1"
 SERVER_PORT := 12345
 PROXY_IP := "127.0.0.1"
 PROXY_PORT := 12346
+PROXY_FAKE_PORT := 12347
+PROXY_THIEF_PORT := 12348
 
 CERTIF_FILES := $(BUILD_DIR)/certs/ca.key \
 				 $(BUILD_DIR)/certs/ca.crt \
@@ -45,9 +47,15 @@ CERTIF_FILES := $(BUILD_DIR)/certs/ca.key \
 				 $(BUILD_DIR)/certs/server.crt \
 				 $(BUILD_DIR)/certs/server.csr
 
+PROXY_CERTIF_FILES := $(BUILD_DIR)/proxy-certs/ca.key \
+					 $(BUILD_DIR)/proxy-certs/ca.crt \
+					 $(BUILD_DIR)/proxy-certs/server.key \
+					 $(BUILD_DIR)/proxy-certs/server.crt \
+					 $(BUILD_DIR)/proxy-certs/server.csr
+
 GENERATOR_SCRIPT := src/crypto/generate_certs.sh
 
-.PHONY: all client server proxy clean
+.PHONY: all client server proxy proxy-fake proxy-thief victim-client victim-client-fake victim-client-thief clean
 
 all: $(RUN_CLIENT) $(RUN_SERVER) $(RUN_PROXY) $(CERTIF_FILES)
 
@@ -57,11 +65,23 @@ client: $(RUN_CLIENT) $(CERTIF_FILES)
 server: $(RUN_SERVER) $(CERTIF_FILES)
 	./$(RUN_SERVER) $(SERVER_PORT) $(BUILD_DIR)/certs
 
-proxy: $(RUN_PROXY) $(CERTIF_FILES)
+proxy: $(RUN_PROXY)
 	./$(RUN_PROXY) $(PROXY_PORT) $(SERVER_IP) $(SERVER_PORT)
+
+proxy-fake: $(RUN_PROXY) $(PROXY_CERTIF_FILES) $(CERTIF_FILES)
+	./$(RUN_PROXY) fake $(PROXY_FAKE_PORT) $(SERVER_IP) $(SERVER_PORT) $(BUILD_DIR)/proxy-certs
+
+proxy-thief: $(RUN_PROXY) $(CERTIF_FILES)
+	./$(RUN_PROXY) thief $(PROXY_THIEF_PORT) $(SERVER_IP) $(SERVER_PORT) $(BUILD_DIR)/certs
 
 victim-client: $(RUN_CLIENT) $(CERTIF_FILES)
 	./$(RUN_CLIENT) $(PROXY_IP) $(PROXY_PORT) $(BUILD_DIR)/certs
+
+victim-client-fake: $(RUN_CLIENT) $(CERTIF_FILES) $(PROXY_CERTIF_FILES)
+	./$(RUN_CLIENT) $(PROXY_IP) $(PROXY_FAKE_PORT) $(BUILD_DIR)/certs
+
+victim-client-thief: $(RUN_CLIENT) $(CERTIF_FILES)
+	./$(RUN_CLIENT) $(PROXY_IP) $(PROXY_THIEF_PORT) $(BUILD_DIR)/certs
 
 $(RUN_CLIENT): $(CLIENT_OBJS) $(COMMON_OBJS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) $(LDFLAGS) -o $@
@@ -78,6 +98,9 @@ $(BUILD_DIR)/%.o: src/%.cpp
 
 $(CERTIF_FILES): $(GENERATOR_SCRIPT) $(BUILD_DIR) 
 	bash $(GENERATOR_SCRIPT) ${BUILD_DIR}
+
+$(PROXY_CERTIF_FILES): $(GENERATOR_SCRIPT) $(BUILD_DIR)
+	bash $(GENERATOR_SCRIPT) ${BUILD_DIR} proxy-certs
 
 -include $(DEPS)
 

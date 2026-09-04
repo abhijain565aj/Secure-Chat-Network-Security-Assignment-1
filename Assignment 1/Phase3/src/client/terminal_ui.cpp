@@ -1,5 +1,6 @@
 #include "terminal_ui.hpp"
 #include <algorithm>
+#include <iostream>
 #include <stdexcept>
 
 TerminalUI::TerminalUI() : outputWindow(nullptr), promptWindow(nullptr),
@@ -52,6 +53,13 @@ TerminalUI::~TerminalUI() {
         delwin(outputWindow);
         delwin(promptWindow);
         endwin();
+        if (!outputHistory.empty()) {
+            std::cerr << "\n--- Client session log ---\n";
+            for (const auto& message : outputHistory) {
+                std::cerr << message;
+            }
+            std::cerr << "--- End client session log ---\n";
+        }
     }
 }
 
@@ -137,6 +145,7 @@ void TerminalUI::printOutput(const Presentation::Output& output) {
         printDivider(output.text);
         return;
     }
+    outputHistory.push_back(output.text);
     int colorPair = 0;
     switch (output.color) {
     case Presentation::Color::Server: colorPair = 1; break;
@@ -157,6 +166,7 @@ void TerminalUI::printOutput(const Presentation::Output& output) {
 }
 
 void TerminalUI::printDivider(const std::string& text) {
+    outputHistory.push_back(text + "\n");
     if (getcurx(outputWindow) != 0) waddch(outputWindow, '\n');
 
     const int height = getmaxy(outputWindow);

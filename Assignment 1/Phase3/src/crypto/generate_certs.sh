@@ -2,14 +2,15 @@
 
 set -euo pipefail
 
-if [ $# -eq 1 ]; then
+if [ $# -ge 1 ] && [ $# -le 2 ]; then
     BUILD_DIR=$1
 else
-    echo "Usage: $0 <certs_directory>"
+    echo "Usage: $0 <build_directory> [certificate_directory_name]"
     exit 1
 fi 
 
-CERT_DIR=$BUILD_DIR/certs
+CERT_NAME=${2:-certs}
+CERT_DIR=$BUILD_DIR/$CERT_NAME
 mkdir -p $CERT_DIR
 
 cd $CERT_DIR
