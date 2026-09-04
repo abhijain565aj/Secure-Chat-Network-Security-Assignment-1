@@ -11,6 +11,7 @@
 #include <cstring>
 #include <cerrno>
 #include <filesystem>
+#include <iostream>
 
 Client::Client(std::string certificate_directory)
         : clientSocket(-1), certificateDirectory(std::move(certificate_directory)),
@@ -147,6 +148,7 @@ void Client::handle_recv(){
             auto& dh_params_msg = static_cast<DHParametersMessage&>(*message);
             dh_params = dh_params_msg.get_parameters();
             dh_keypair = DHE::getNewKeyPair(dh_params);
+            log_handshake("Received DH parameters and generated key pair");
             break;
         }
         case MessageType::DHKeyMsg:{
@@ -163,6 +165,9 @@ void Client::handle_recv(){
         }
         case MessageType::CertificateMsg: {
             auto& cert_msg = static_cast<CertificateMessage&>(*message);
+            log_handshake("Received server certificate (" +
+                          std::to_string(cert_msg.get_certificate().size()) +
+                          " bytes)");
             validateServerCertificate(cert_msg.get_certificate());
             break;
         }
@@ -174,6 +179,10 @@ void Client::handle_recv(){
         running = false;
         closeConnection();
     }
+}
+
+void Client::log_handshake(const std::string& message) {
+    terminalUi->printOutput("[Client] " + message + "\n");
 }
 
 void Client::handle_signature_message(const BSignatureMessage& message) {
@@ -190,10 +199,13 @@ void Client::handle_signature_message(const BSignatureMessage& message) {
 
     if (!Signature::verify(serverPublicKey, transcript, message.get_signature()))
         throw std::runtime_error("Server handshake signature verification failed");
+    log_handshake("Server signature verified successfully");
 
     server_public_key = DHE::DHKey(DHE::BytesToBIGNUM(serverPublicKeyBytes));
     server_aes_key = DHE::deriveAESKey(
         dh_keypair.get_private_key(), server_public_key.get(), dh_params.get_p());
+    secureChannelEstablished = true;
+    log_handshake("Secure channel established");
 }
 
 void Client::validateServerCertificate(const std::vector<uint8_t>& certBytes) {
@@ -212,6 +224,7 @@ void Client::validateServerCertificate(const std::vector<uint8_t>& certBytes) {
 
         throw std::runtime_error("Server certificate validation failed");
     }
+    log_handshake("Server certificate validated successfully");
 
     serverPublicKey = Certificate::getPublicKey(
         serverCertificate
@@ -226,6 +239,7 @@ void Client::validateServerCertificate(const std::vector<uint8_t>& certBytes) {
     auto R = DHE::generateChallenge();
     handshake_challenge = R;
     RAMessage ra_msg(dh_keypair.get_public_key(), R);
+    log_handshake("Sending R,A handshake message");
     handle_send(ra_msg, false);
 }
 

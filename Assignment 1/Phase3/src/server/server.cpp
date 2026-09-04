@@ -157,12 +157,21 @@ void Server::accept_new_clients(){
         Certificate::readCertificateBytes(
             (std::filesystem::path(certificateDirectory) / "server.crt").string()
         );
+    if (certificate.empty()) {
+        throw std::runtime_error("Failed to read server certificate");
+    }
+    std::cout << Presentation::server_log(
+        "Loaded server certificate (" + std::to_string(certificate.size()) +
+        " bytes)") << std::endl;
 
     // send the DH parameters and server certificate to the client
     DHParametersMessage dh_params_message(dh_params);
     handle_send(user, dh_params_message, false);
     CertificateMessage certificateMessage(certificate);
     handle_send(user, certificateMessage, false);
+    std::cout << Presentation::server_log(
+        "Sent DH parameters and certificate to client (fd " +
+        std::to_string(clientSocket) + ")") << std::endl;
 
     std::cout << Presentation::server_log(
         "Sent DH parameters to client (fd " +
@@ -244,9 +253,15 @@ void Server::handle_RAMessage(User* user, const RAMessage& ra_msg) {
         serverPrivateKey,
         transcript
     );
+    std::cout << Presentation::server_log(
+        "Signed handshake transcript and sending B,signature (fd " +
+        std::to_string(user->get_file_descriptor()) + ")") << std::endl;
 
     BSignatureMessage response(B_bytes, std::move(signature));
     handle_send(user, response, false);
+    std::cout << Presentation::server_log(
+        "Derived shared key and sent handshake response for fd " +
+        std::to_string(user->get_file_descriptor())) << std::endl;
 }
 
 void Server::handle_send(User* user, Message& message, bool encrypt) {
@@ -340,6 +355,9 @@ void Server::log_request(int client_fd, const Message& message) const {
     }
     case MessageType::Who:
         request = "/who";
+        break;
+    case MessageType::RAMsg:
+        request = "handshake R,A";
         break;
     default:
         request = "unknown message";

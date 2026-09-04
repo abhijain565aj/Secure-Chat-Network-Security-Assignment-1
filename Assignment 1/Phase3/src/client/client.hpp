@@ -46,6 +46,7 @@ private:
     void handle_recv();
     void handle_send(const Message& message, bool encrypt = true);
     void handle_signature_message(const BSignatureMessage& message);
+    void log_handshake(const std::string& message);
     void validateServerCertificate(const std::vector<uint8_t>& certBytes);
 };
 
