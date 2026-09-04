@@ -16,6 +16,7 @@ class TerminalUI {
     std::vector<std::string> outputHistory;
 
     void refreshPrompt();
+    void refreshScreen();
     void resizeLayout(int promptRows);
     void printDivider(const std::string& text);
 

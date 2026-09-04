@@ -16,6 +16,7 @@ class Client{
 
     int clientSocket;
     std::string certificateDirectory;
+    std::vector<std::string> pendingHandshakeLogs;
     std::vector<pollfd> fds;
     sockaddr_in serverAddress;
     std::shared_ptr<TerminalUI> terminalUi;
@@ -45,6 +46,8 @@ private:
     void handleInput();
     void handle_recv();
     void handle_send(const Message& message, bool encrypt = true);
+    void perform_handshake();
+    void flush_handshake_logs();
     void handle_signature_message(const BSignatureMessage& message);
     void log_handshake(const std::string& message);
     void validateServerCertificate(const std::vector<uint8_t>& certBytes);

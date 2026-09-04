@@ -43,9 +43,15 @@ TerminalUI::TerminalUI() : outputWindow(nullptr), promptWindow(nullptr),
 void TerminalUI::resizeLayout(int promptRows) {
     promptRows = std::min(promptRows, std::max(2, terminalRows - 1));
     const int outputRows = std::max(1, terminalRows - promptRows);
+    if (getmaxy(outputWindow) == outputRows &&
+        getmaxy(promptWindow) == promptRows) {
+        return;
+    }
+
     wresize(outputWindow, outputRows, terminalColumns);
     mvwin(promptWindow, outputRows, 0);
     wresize(promptWindow, promptRows, terminalColumns);
+    touchwin(outputWindow);
 }
 
 TerminalUI::~TerminalUI() {
@@ -71,6 +77,7 @@ void TerminalUI::refreshPrompt() {
     const int inputRows = std::max(1,
         (static_cast<int>(inputBuffer.size()) + inputWidth - 1) / inputWidth);
     resizeLayout(1 + inputRows);
+
     werase(promptWindow);
     const int width = getmaxx(promptWindow);
     const int promptRows = getmaxy(promptWindow);
@@ -83,7 +90,7 @@ void TerminalUI::refreshPrompt() {
     if (colorsEnabled) wattroff(promptWindow, COLOR_PAIR(1));
 
     if (promptRows < 2 || width < 2) {
-        wrefresh(promptWindow);
+        refreshScreen();
         return;
     }
 
@@ -97,12 +104,15 @@ void TerminalUI::refreshPrompt() {
 
     const int firstLineWidth = width - inputColumn - 1;
     if (firstLineWidth > 0) {
-        mvwaddnstr(promptWindow, 1, inputColumn, inputBuffer.c_str(), firstLineWidth);
+        mvwaddnstr(promptWindow, 1, inputColumn, inputBuffer.c_str(),
+                   firstLineWidth);
     }
+
     int offset = std::max(0, firstLineWidth);
     int row = 2;
     while (offset < static_cast<int>(inputBuffer.size()) && row < promptRows) {
-        mvwaddnstr(promptWindow, row, 0, inputBuffer.c_str() + offset, width - 1);
+        mvwaddnstr(promptWindow, row, 0, inputBuffer.c_str() + offset,
+                   width - 1);
         offset += width - 1;
         ++row;
     }
@@ -111,7 +121,13 @@ void TerminalUI::refreshPrompt() {
         ? inputColumn + static_cast<int>(inputBuffer.size())
         : static_cast<int>(inputBuffer.size()) - offset + width - 1;
     wmove(promptWindow, cursorRow, std::min(cursorColumn, width - 1));
-    wrefresh(promptWindow);
+    refreshScreen();
+}
+
+void TerminalUI::refreshScreen() {
+    wnoutrefresh(outputWindow);
+    wnoutrefresh(promptWindow);
+    doupdate();
 }
 
 bool TerminalUI::readInput(std::string& message) {
@@ -139,7 +155,6 @@ bool TerminalUI::readInput(std::string& message) {
 
 void TerminalUI::clearOutput() {
     werase(outputWindow);
-    wrefresh(outputWindow);
     refreshPrompt();
 }
 
@@ -149,6 +164,7 @@ void TerminalUI::printOutput(const Presentation::Output& output) {
         return;
     }
     outputHistory.push_back(output.text);
+    if (getcurx(outputWindow) != 0) waddch(outputWindow, '\n');
     int colorPair = 0;
     switch (output.color) {
     case Presentation::Color::Server: colorPair = 1; break;
@@ -164,7 +180,6 @@ void TerminalUI::printOutput(const Presentation::Output& output) {
     waddnstr(outputWindow, output.text.c_str(), -1);
     if (output.dim) wattroff(outputWindow, A_DIM);
         if (colorsEnabled && colorPair != 0) wattroff(outputWindow, COLOR_PAIR(colorPair));
-    wrefresh(outputWindow);
     refreshPrompt();
 }
 
@@ -177,7 +192,6 @@ void TerminalUI::printDivider(const std::string& text) {
         if (height < 3) {
             waddnstr(outputWindow, text.c_str(), -1);
             waddch(outputWindow, '\n');
-            wrefresh(outputWindow);
             refreshPrompt();
             return;
         }
@@ -200,7 +214,6 @@ void TerminalUI::printDivider(const std::string& text) {
     wattroff(outputWindow, A_DIM);
     wmove(outputWindow, row + 2, 0);
     waddch(outputWindow, '\n');
-    wrefresh(outputWindow);
     refreshPrompt();
 }
 

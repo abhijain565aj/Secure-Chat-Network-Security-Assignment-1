@@ -15,10 +15,17 @@
 
 Client::Client(std::string certificate_directory)
         : clientSocket(-1), certificateDirectory(std::move(certificate_directory)),
-            terminalUi(std::make_shared<TerminalUI>()), running(true) {}
+            terminalUi(nullptr), running(true) {}
 
 Client::~Client(){
     closeConnection();
+    if (!pendingHandshakeLogs.empty()) {
+        std::cerr << "\n--- Client handshake log ---\n";
+        for (const auto& message : pendingHandshakeLogs) {
+            std::cerr << "[Client] " << message << '\n';
+        }
+        std::cerr << "--- End client handshake log ---\n";
+    }
 }
 
 void Client::connectToServer(std::string IP, int port){
@@ -45,6 +52,41 @@ void Client::connectToServer(std::string IP, int port){
         throw std::runtime_error(std::strerror(errno));
     }
     log_handshake("TCP connection established");
+    perform_handshake();
+    terminalUi = std::make_shared<TerminalUI>();
+    flush_handshake_logs();
+}
+
+void Client::perform_handshake() {
+    auto parametersMessage = receive_message(clientSocket);
+    if (parametersMessage->type() != MessageType::DHParametersMsg)
+        throw std::runtime_error("Expected DH parameters from server");
+    auto& parameters = static_cast<DHParametersMessage&>(*parametersMessage);
+    dh_params = parameters.get_parameters();
+    dh_keypair = DHE::getNewKeyPair(dh_params);
+    log_handshake("Received DH parameters and generated key pair");
+
+    auto certificateMessage = receive_message(clientSocket);
+    if (certificateMessage->type() != MessageType::CertificateMsg)
+        throw std::runtime_error("Expected server certificate");
+    auto& certificate = static_cast<CertificateMessage&>(*certificateMessage);
+    log_handshake("Received server certificate (" +
+                  std::to_string(certificate.get_certificate().size()) +
+                  " bytes)");
+    validateServerCertificate(certificate.get_certificate());
+
+    auto signatureMessage = receive_message(clientSocket);
+    if (signatureMessage->type() != MessageType::BSignatureMsg)
+        throw std::runtime_error("Expected signed server handshake response");
+    handle_signature_message(
+        static_cast<const BSignatureMessage&>(*signatureMessage));
+}
+
+void Client::flush_handshake_logs() {
+    for (const auto& message : pendingHandshakeLogs) {
+        terminalUi->printOutput("[Client] " + message + "\n");
+    }
+    pendingHandshakeLogs.clear();
 }
 
 void Client::eventLoop(){
@@ -197,7 +239,11 @@ void Client::handle_recv(){
 }
 
 void Client::log_handshake(const std::string& message) {
-    terminalUi->printOutput("[Client] " + message + "\n");
+    if (terminalUi != nullptr) {
+        terminalUi->printOutput("[Client] " + message + "\n");
+    } else {
+        pendingHandshakeLogs.push_back(message);
+    }
 }
 
 void Client::handle_signature_message(const BSignatureMessage& message) {
@@ -269,10 +315,13 @@ void Client::handle_send(const Message& message, bool encrypt){
             send_message(clientSocket, message);
         }
     } catch (const std::exception& error) {
-        terminalUi->printOutput(Presentation::error_message(
-            std::string("Send failed: ") + error.what()));
+        if (terminalUi != nullptr) {
+            terminalUi->printOutput(Presentation::error_message(
+                std::string("Send failed: ") + error.what()));
+        }
         log_handshake("Closing connection after send failure");
         running = false;
         closeConnection();
+        if (terminalUi == nullptr) throw;
     }
 }
