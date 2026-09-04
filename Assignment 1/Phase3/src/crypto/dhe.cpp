@@ -2,6 +2,7 @@
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/sha.h>
+#include <openssl/rand.h>
 #include <stdexcept>
 
 static constexpr char RFC3526_GROUP14_PRIME[] =
@@ -269,3 +270,13 @@ DHE::DHKeyPair::DHKeyPair(DHKey private_key, DHKey public_key)
 
 BIGNUM* DHE::DHKeyPair::get_private_key() const { return private_key.get(); }
 BIGNUM* DHE::DHKeyPair::get_public_key() const { return public_key.get(); }
+
+std::array<uint8_t, 32> DHE::generateChallenge(){
+    std::array<uint8_t, 32> R{};
+    if (RAND_bytes(R.data(), R.size()) != 1) {
+        throw std::runtime_error(
+            "Failed to generate random challenge"
+        );
+    }
+    return R;
+}

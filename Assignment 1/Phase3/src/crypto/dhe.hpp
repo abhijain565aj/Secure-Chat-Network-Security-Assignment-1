@@ -5,7 +5,6 @@
 #include <array>            
 #include <cstdint>
 #include <vector>
-
 namespace DHE{
 
 using AES_KEY = std::array<uint8_t, 32>;
@@ -72,8 +71,8 @@ AES_KEY deriveAESKey(
     const BIGNUM* peer_public_key,
     const BIGNUM* p
 );
-    
 
+std::array<uint8_t, 32> generateChallenge();
 
 } //namespace DHE
 
