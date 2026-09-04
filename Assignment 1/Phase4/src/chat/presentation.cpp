@@ -45,6 +45,7 @@ Output help_message() {
         "Commands:\n"
         "  /login username   Log in to the server\n"
         "  /chat username    Switch the local chat target\n"
+		"  /e2e username     Establish an end-to-end session\n"
         "  @username message Send a message and switch target\n"
         "  /who              Show online users\n"
         "  /clear            Clear the terminal output\n"
