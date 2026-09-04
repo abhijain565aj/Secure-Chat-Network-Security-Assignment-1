@@ -7,9 +7,11 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <unordered_map>
 #include "terminal_ui.hpp"
 #include "chat/message.hpp"
 #include "crypto/dhe.hpp"
+#include "crypto/e2e_session.hpp"
 
 class Client{
     const static int BUFFER_SIZE = 1024;
@@ -31,6 +33,7 @@ class Client{
     DHE::AES_KEY server_aes_key;
     std::array<uint8_t, 32> handshake_challenge{};
     bool secureChannelEstablished = false;
+    std::unordered_map<std::string, E2E::Session> e2eSessions;
 
     X509* serverCertificate;
     EVP_PKEY* serverPublicKey;
@@ -49,6 +52,8 @@ private:
     void perform_handshake();
     void flush_handshake_logs();
     void handle_signature_message(const BSignatureMessage& message);
+    void begin_e2e(const std::string& peerUsername);
+    void handle_e2e_message(const UserMessage& message);
     void log_handshake(const std::string& message);
     void validateServerCertificate(const std::vector<uint8_t>& certBytes);
 };

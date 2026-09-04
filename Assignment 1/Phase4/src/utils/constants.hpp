@@ -6,6 +6,6 @@ const int USERNAME_MIN_LENGTH = 4;
 const int PASSWORD_MAX_LENGTH = 32;
 const int PASSWORD_MIN_LENGTH = 8;
 
-const int MESSAGE_MAX_LENGTH = 256;
+const int MESSAGE_MAX_LENGTH = 2048;
 
 #endif

@@ -13,6 +13,12 @@
 #include <filesystem>
 #include <iostream>
 
+namespace {
+bool has_tag(const std::string& value, const char* tag) {
+    return value.rfind(tag, 0) == 0;
+}
+}
+
 Client::Client(std::string certificate_directory)
         : clientSocket(-1), certificateDirectory(std::move(certificate_directory)),
             terminalUi(nullptr), running(true) {}
@@ -157,6 +163,10 @@ void Client::handleInput(){
 			case CommandType::Help:
                 terminalUi->printOutput(Presentation::help_message());
                 break;
+            case CommandType::E2E:
+                currentChat = command.chatUsername;
+                begin_e2e(currentChat);
+                break;
 			case CommandType::Login:
                 pendingUsername = static_cast<LoginMessage*>(command.message.get())->get_username();
                 handle_send(*command.message);
@@ -167,6 +177,15 @@ void Client::handleInput(){
 				if (command.type == CommandType::UserMessage) {
                     currentChat = static_cast<UserMessage*>(command.message.get())->get_username();
                     terminalUi->printOutput(Presentation::chat_switched(currentChat));
+                }
+                if (command.message->type() == MessageType::User) {
+                    auto& userMessage = static_cast<UserMessage&>(*command.message);
+                    auto session = e2eSessions.find(userMessage.get_username());
+                    if (session != e2eSessions.end() && session->second.is_established()) {
+                        command.message = std::make_unique<UserMessage>(
+                            userMessage.get_username(),
+                            session->second.encrypt(userMessage.get_message()));
+                    }
                 }
 				handle_send(*command.message);
 				break;
@@ -189,6 +208,12 @@ void Client::handle_recv(){
         switch (message->type()) {
         case MessageType::User: {
             auto& user = static_cast<UserMessage&>(*message);
+                if (has_tag(user.get_message(), E2E::INIT_TAG) ||
+                    has_tag(user.get_message(), E2E::ACK_TAG) ||
+                    has_tag(user.get_message(), E2E::MESSAGE_TAG)) {
+                    handle_e2e_message(user);
+                    break;
+                }
             terminalUi->printOutput(Presentation::user_message(user, username, currentChat));
             break;
         }
@@ -242,6 +267,55 @@ void Client::handle_recv(){
         running = false;
         closeConnection();
     }
+}
+
+void Client::begin_e2e(const std::string& peerUsername) {
+    if (!secureChannelEstablished)
+        throw std::runtime_error("Secure channel is not established");
+    E2E::Session session(dh_params);
+    const std::string payload = session.begin();
+    e2eSessions.insert_or_assign(peerUsername, std::move(session));
+    UserMessage init(peerUsername, payload);
+    handle_send(init);
+    terminalUi->printOutput(Presentation::server_message(
+        "E2E key exchange started with @" + peerUsername));
+}
+
+void Client::handle_e2e_message(const UserMessage& message) {
+    const std::string& payload = message.get_message();
+    const bool isOwnEcho = message.get_sender() == username;
+    const std::string& peerUsername = isOwnEcho
+        ? message.get_username() : message.get_sender();
+    if (isOwnEcho &&
+        (has_tag(payload, E2E::INIT_TAG) || has_tag(payload, E2E::ACK_TAG)))
+        return;
+    if (has_tag(payload, E2E::INIT_TAG)) {
+        E2E::Session session(dh_params);
+        const std::string ack = session.accept_init(payload);
+        e2eSessions.insert_or_assign(peerUsername, std::move(session));
+        UserMessage response(peerUsername, ack);
+        handle_send(response);
+        terminalUi->printOutput(Presentation::server_message(
+            "E2E session established with @" + peerUsername));
+        return;
+    }
+    auto session = e2eSessions.find(peerUsername);
+    if (session == e2eSessions.end())
+        throw std::runtime_error("Received E2E data without a session");
+    if (has_tag(payload, E2E::ACK_TAG)) {
+        session->second.accept_ack(payload);
+        terminalUi->printOutput(Presentation::server_message(
+            "E2E session established with @" + peerUsername));
+        return;
+    }
+    if (has_tag(payload, E2E::MESSAGE_TAG)) {
+        UserMessage plaintext(message.get_sender(), message.get_username(),
+                               session->second.decrypt(payload));
+        terminalUi->printOutput(Presentation::user_message(
+            plaintext, username, currentChat));
+        return;
+    }
+    throw std::runtime_error("Unknown E2E wire tag");
 }
 
 void Client::log_handshake(const std::string& message) {
