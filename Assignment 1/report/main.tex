@@ -158,7 +158,8 @@ For the integrity test, the implementation supports intentionally modifying a ci
 
 The Phase 2 MITM proxy is placed on Mallory between the victim client and the real server. It performs two independent DH exchanges: one while posing as the server to the client and another while posing as the client to the real server. The proxy therefore obtains one AES key for each side, decrypts a received message, logs its plaintext, and re-encrypts it under the key for the other link.
 
-
+\begin{figure}[H]
+\centering
 \begin{tikzpicture}[
     >=Latex,
     thick,
@@ -221,6 +222,8 @@ The Phase 2 MITM proxy is placed on Mallory between the victim client and the re
         node[midway, above, font=\sffamily\small] {Encrypted under $K_2$};
 
 \end{tikzpicture}
+\caption{Explaining the Phase 2 MITM proxy attack: Mallory establishes two independent DH/AES channels, decrypts and logs messages, and forwards them without alerting the client or server.}
+\end{figure}
 
 \begin{figure}[H]
 \centering
@@ -273,12 +276,101 @@ A valid certificate alone is insufficient because an attacker could copy \texttt
 \]
 The client verifies this signature with the public key extracted from the validated server certificate. Only then does it derive the DH/AES key. Binding $R$, $A$, and $B$ to the signature also makes the proof specific to the current handshake.
 
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    >=Latex,
+    thick,
+    entity/.style={draw, minimum width=3.5cm, minimum height=1.2cm, fill=gray!10, align=center, font=\sffamily\bfseries},
+    client/.style={entity, fill=blue!10, draw=blue!60!black},
+    server/.style={entity, fill=green!10, draw=green!60!black},
+    actionbox/.style={draw=gray!80, fill=white, rounded corners, align=left, text width=5.5cm, font=\sffamily\small, inner sep=6pt},
+    notebox/.style={draw=yellow!60!black, fill=yellow!10, rounded corners, font=\sffamily\footnotesize, inner sep=4pt}
+]
+
+    % Define X coordinates for the lifelines
+    \def\clientX{0}
+    \def\serverX{9}
+    \def\bottomY{-11.5}
+
+    % Nodes for the entities
+    \node[client] (C) at (\clientX, 0) {Client\\{\footnotesize (Trusts \texttt{ca.crt})}};
+    \node[server] (S) at (\serverX, 0) {Server (\texttt{chat-server})\\{\footnotesize (Holds \texttt{server.crt}, \texttt{server.key})}};
+
+    % Draw Lifelines
+    \draw[dashed, draw=gray!70] (C.south) -- (\clientX, \bottomY);
+    \draw[dashed, draw=gray!70] (S.south) -- (\serverX, \bottomY);
+
+    % 1. Server sends certificate
+    \draw[<-] (\clientX, -1.5) -- (\serverX, -1.5) 
+        node[midway, above, font=\sffamily\small] {1. \texttt{server.crt}};
+
+    % 2. Client verifies certificate
+    \node[actionbox, draw=blue!60!black] at (\clientX, -3.0) {
+        \textbf{Verify X.509 Certificate:}\\
+        $\bullet$ Check CA chain \& signature (\texttt{ca.crt})\\
+        $\bullet$ Check expiration validity\\
+        $\bullet$ Hostname matches \texttt{chat-server}\\
+        \textit{(Aborts if any check fails)}
+    };
+
+    % 3. Client sends Challenge and DH Pub A
+    \draw[->] (\clientX, -4.8) -- (\serverX, -4.8) 
+        node[midway, above, font=\sffamily\small] {2. Challenge $R$, DH Public $A$};
+
+    % 4. Server computes DH Pub B and signs transcript
+    \node[actionbox, draw=green!60!black] at (\serverX, -6.5) {
+        \textbf{Generate Proof of Possession:}\\
+        $\bullet$ Choose DH Public $B$\\
+        $\bullet$ Build transcript $T =$\\
+          \texttt{"MYCHAT-HANDSHAKE-V1"} $\parallel R \parallel A \parallel B$\\
+        $\bullet$ Sign $T$ using \texttt{server.key} $\rightarrow Sig$
+    };
+
+    % 5. Server sends B and Signature
+    \draw[<-] (\clientX, -8.3) -- (\serverX, -8.3) 
+        node[midway, above, font=\sffamily\small] {3. DH Public $B$, Signature $Sig$};
+
+    % 6. Client verifies signature and derives key
+    \node[actionbox, draw=blue!60!black] at (\clientX, -10.0) {
+        \textbf{Verify \& Establish:}\\
+        $\bullet$ Verify $Sig$ using cert's Public Key\\
+        $\bullet$ \textit{(Aborts if signature invalid)}\\
+        $\bullet$ Derive DH/AES Session Key
+    };
+
+    % 7. Server derives key
+    \node[actionbox, draw=green!60!black, text width=4cm, align=center] at (\serverX, -10.0) {
+        \textbf{Establish:}\\
+        $\bullet$ Derive DH/AES Session Key
+    };
+
+    % Final Secure Channel indicator
+    \draw[<->, line width=2pt, draw=green!70!black] (\clientX, -11.2) -- (\serverX, -11.2) 
+        node[midway, fill=white, font=\sffamily\bfseries, inner sep=2pt] {Secure Authenticated Channel};
+
+\end{tikzpicture}
+\caption{The Phase 3 authenticated handshake: the client verifies the server's certificate and proof of possession before establishing a secure channel.}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{images/phase3/legitimate.png}
+    \caption{Legitimate handshake: connection is established successfully. (Client on right, Server on left)}
+\end{figure}
+
 \subsection{Verification and Proxy Re-attempts}
 
 Three proxy modes are present in the Phase 3 implementation. For each mode, three independent runs are recorded below as requested.
 
-\subsection{Phase2 proxy}
+\subsubsection*{Phase-2 proxy}
 Since here the proxy has no certificate, it cannot even attempt a MITM. The client aborts the connection before any DH exchange.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.60\linewidth]{images/phase3/phase2-proxy.png}
+    \caption{Phase-2 proxy: connection is aborted before any DH exchange. (Proxy on top-left, Victim-Client on top-right, Real-Server on bottom)}
+\end{figure}
 
 \subsubsection*{Normal proxy -- legitimate authenticated flow}
 
