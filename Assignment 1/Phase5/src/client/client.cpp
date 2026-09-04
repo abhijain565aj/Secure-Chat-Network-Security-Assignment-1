@@ -367,8 +367,9 @@ void Client::log_key_rotation(const std::string& peerUsername,
     localtime_r(&now, &localTime);
     std::ostringstream timestamp;
     timestamp << std::put_time(&localTime, "%Y-%m-%d %H:%M:%S");
+    auto fingerprint = session.key_fingerprint();
     log_handshake("E2E key rotation with @" + peerUsername + " at " +
-                  timestamp.str() + " fingerprint=" + session.key_fingerprint());
+                  timestamp.str() + " fingerprint=" + fingerprint.substr(0, 8) + "..." + fingerprint.substr(fingerprint.length() - 8));
 }
 
 void Client::log_handshake(const std::string& message) {
