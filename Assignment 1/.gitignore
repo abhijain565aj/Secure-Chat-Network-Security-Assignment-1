@@ -4,3 +4,4 @@
 report/*
 !report/main.tex
 !report/images/
+*.tar.gz

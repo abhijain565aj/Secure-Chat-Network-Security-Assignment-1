@@ -1,3 +1,8 @@
+# Collaborators
+
+- Abhi Jain (23b0903)
+- Sameer Arvind Patil (23b1035)
+
 # Secure Chat — Network Security Assignment
 
 A five-phase C++ secure-chat implementation for CS-6008. Each phase is self-contained; see its directory README for its exact commands.
