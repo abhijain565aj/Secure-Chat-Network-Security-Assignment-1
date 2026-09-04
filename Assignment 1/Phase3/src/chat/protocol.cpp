@@ -17,7 +17,9 @@ const std::unordered_map<MessageType, Decoder> DECODERS = {
     {MessageType::Server, &ServerMessage::deserialize},
     {MessageType::DHParametersMsg, &DHParametersMessage::deserialize},
     {MessageType::DHKeyMsg, &DHKeyMessage::deserialize},
-    {MessageType::Ciphertext, &CiphertextMsg::deserialize}
+    {MessageType::CertificateMsg, &CertificateMessage::deserialize},
+    {MessageType::BSignatureMsg, &BSignatureMessage::deserialize},
+    {MessageType::Ciphertext, &CiphertextMsg::deserialize},
 };
 
 void send_all(int socket, const uint8_t* data, size_t size) {
