@@ -31,12 +31,15 @@ ServerMessage::ServerMessage(std::string _text)
         throw std::runtime_error("Server message exceeds maximum length");
 }
 
-void UserMessage::serialize(PacketBuffer& packet) const { packet << sender << username << msg; }
+void UserMessage::serialize(PacketBuffer& packet) const {
+    packet << sender << username << msg;
+}
 
 std::unique_ptr<Message> UserMessage::deserialize(PacketBuffer& packet) {
     std::string sender, username, message;
     packet >> sender >> username >> message;
-    return std::make_unique<UserMessage>(std::move(sender), std::move(username), std::move(message));
+    return std::make_unique<UserMessage>(
+        std::move(sender), std::move(username), std::move(message));
 }
 
 void LoginMessage::serialize(PacketBuffer& packet) const { packet << username; }
@@ -106,6 +109,12 @@ std::unique_ptr<Message> CiphertextMsg::deserialize(PacketBuffer& packet) {
 
 CiphertextMsg::CiphertextMsg(const Message& message, const DHE::AES_KEY& aes_key) {
     ciphertext = AES::encrypt(aes_key, serialize_message(message));
+}
+
+void CiphertextMsg::tamper_ciphertext() {
+    if (ciphertext.ciphertext.empty())
+        throw std::runtime_error("Cannot tamper with empty ciphertext");
+    ciphertext.ciphertext[0] ^= 0x01;
 }
 
 std::unique_ptr<Message> CiphertextMsg::getMsg(const DHE::AES_KEY& aes_key) const {

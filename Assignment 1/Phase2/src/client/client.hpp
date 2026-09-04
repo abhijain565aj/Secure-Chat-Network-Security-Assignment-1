@@ -39,7 +39,7 @@ public:
     
 private:
     void handle_recv();
-    void handle_send(const Message& message, bool encrypt = true);
+    void handle_send(const Message& message, bool encrypt = true, bool tamper_after_encryption = false);
 };
 
 #endif // CLIENT_HPP

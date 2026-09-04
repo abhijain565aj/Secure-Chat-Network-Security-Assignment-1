@@ -22,9 +22,22 @@ ParsedCommand CommandParser::parse(const std::string& input) {
 
 ParsedCommand CommandParser::parse(const std::string& input,
                                    const std::string& currentChat) {
+    if (input == "/tamper msg") {
+        auto command = parse_tamper_message(input, currentChat);
+        command.tamper = true;
+        return command;
+    }
     if (!input.empty() && input[0] == '@') return parse_user_message(input);
     if (input.empty() || input[0] == '/') return parse(input);
     return parse_current_chat(input, currentChat);
+}
+
+ParsedCommand CommandParser::parse_tamper_message(const std::string&,
+                                                  const std::string& currentChat) {
+    if (currentChat.empty())
+        throw std::runtime_error("Select a recipient with @username message first");
+    auto message = std::make_unique<UserMessage>(currentChat, "msg");
+    return {CommandType::CurrentChat, std::move(message), "", false};
 }
 
 ParsedCommand CommandParser::parse_login(const std::string& input) {

@@ -108,8 +108,8 @@ public:
     static std::unique_ptr<Message> deserialize(PacketBuffer& packet);
     AES::Ciphertext get_ciphertext() const { return ciphertext; }
 
-    // New methods for encryption and decryption
     explicit CiphertextMsg(const Message& message, const DHE::AES_KEY& aes_key);
+    void tamper_ciphertext();
     std::unique_ptr<Message> getMsg(const DHE::AES_KEY& aes_key) const;
 };
 #endif

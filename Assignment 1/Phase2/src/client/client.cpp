@@ -101,7 +101,8 @@ void Client::handleInput(){
                     currentChat = static_cast<UserMessage*>(command.message.get())->get_username();
                     terminalUi->printOutput(Presentation::chat_switched(currentChat));
                 }
-				handle_send(*command.message);
+                handle_send(*command.message, true,
+                            command.tamper);
 				break;
             }
         } catch (const std::exception& error) {
@@ -163,10 +164,13 @@ void Client::handle_recv(){
     }
 }
 
-void Client::handle_send(const Message& message, bool encrypt){
+void Client::handle_send(const Message& message, bool encrypt,
+                         bool tamper_after_encryption){
     try {
         if(encrypt){
             CiphertextMsg ciphertext_msg(message, server_aes_key);
+            if (tamper_after_encryption)
+                ciphertext_msg.tamper_ciphertext();
             send_message(clientSocket, ciphertext_msg);
         } else{
             send_message(clientSocket, message);
