@@ -57,7 +57,7 @@ GENERATOR_SCRIPT := src/crypto/generate_certs.sh
 
 .PHONY: all client server proxy proxy-fake proxy-thief victim-client victim-client-fake victim-client-thief clean
 
-all: $(RUN_CLIENT) $(RUN_SERVER) $(RUN_PROXY) $(CERTIF_FILES)
+all: $(RUN_CLIENT) $(RUN_SERVER) $(RUN_PROXY) $(CERTIF_FILES) $(PROXY_CERTIF_FILES)
 
 client: $(RUN_CLIENT) $(CERTIF_FILES)
 	./$(RUN_CLIENT) $(SERVER_IP) $(SERVER_PORT) $(BUILD_DIR)/certs
