@@ -142,12 +142,14 @@ void Server::accept_new_clients(){
 }
 
 void Server::handle_client(int client_fd){
+    bool decrypting = false;
     try {
         std::unique_ptr<Message> message = receive_message(client_fd);
         User* user = users.find_by_file_descriptor(client_fd);
         if (user == nullptr) throw std::runtime_error("Unknown client");
 
         if(message->type() == MessageType::Ciphertext) {
+            decrypting = true;
             CiphertextMsg& ciphertext_msg = static_cast<CiphertextMsg&>(*message);
             message = ciphertext_msg.getMsg(user->get_aes_key());
         }
@@ -190,8 +192,12 @@ void Server::handle_client(int client_fd){
             }
         }
     } catch (const std::exception& error) {
+        if (decrypting) {
+            std::cerr << Presentation::server_log("Decryption failed") << std::endl;
+        } else {
             std::cerr << Presentation::server_log(std::string("message: ") + error.what())
                       << std::endl;
+        }
         close_client(client_fd);
     }
 }

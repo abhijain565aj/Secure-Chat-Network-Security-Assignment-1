@@ -46,7 +46,7 @@ Output help_message() {
         "  /login username   Log in to the server\n"
         "  /chat username    Switch the local chat target\n"
         "  @username message Send a message and switch target\n"
-        "  /tamper msg        Send a tampered message to the current target\n"
+        "  /tamper <message>  Send a tampered message to the current target\n"
         "  /who              Show online users\n"
         "  /clear            Clear the terminal output\n"
         "  /help             Show this help\n"

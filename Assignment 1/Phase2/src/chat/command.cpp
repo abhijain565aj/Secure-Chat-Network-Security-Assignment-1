@@ -1,11 +1,19 @@
 #include "command.hpp"
 #include <stdexcept>
 
+namespace {
+bool is_tamper_command(const std::string& input) {
+    return input.rfind("/tamper ", 0) == 0;
+}
+}
+
 ParsedCommand CommandParser::parse(const std::string& input) {
     if (input == "/quit") return {CommandType::Quit, nullptr, ""};
     if (input == "/who") return {CommandType::Who, std::make_unique<WhoMessage>(), ""};
     if (input == "/clear") return {CommandType::Clear, nullptr, ""};
     if (input == "/help") return {CommandType::Help, nullptr, ""};
+    if (is_tamper_command(input))
+        throw std::runtime_error("Use /tamper <message> after selecting a recipient");
     if (input.rfind("/chat", 0) == 0) return parse_chat(input);
 
     const std::string login_prefix = "/login ";
@@ -22,7 +30,7 @@ ParsedCommand CommandParser::parse(const std::string& input) {
 
 ParsedCommand CommandParser::parse(const std::string& input,
                                    const std::string& currentChat) {
-    if (input == "/tamper msg") {
+    if (is_tamper_command(input)) {
         auto command = parse_tamper_message(input, currentChat);
         command.tamper = true;
         return command;
@@ -32,11 +40,15 @@ ParsedCommand CommandParser::parse(const std::string& input,
     return parse_current_chat(input, currentChat);
 }
 
-ParsedCommand CommandParser::parse_tamper_message(const std::string&,
+ParsedCommand CommandParser::parse_tamper_message(const std::string& input,
                                                   const std::string& currentChat) {
     if (currentChat.empty())
-        throw std::runtime_error("Select a recipient with @username message first");
-    auto message = std::make_unique<UserMessage>(currentChat, "msg");
+        throw std::runtime_error("Select a recipient before using /tamper");
+    const std::string tamper_prefix = "/tamper ";
+    const std::string text = input.substr(tamper_prefix.size());
+    if (text.empty())
+        throw std::runtime_error("Usage: /tamper <message>");
+    auto message = std::make_unique<UserMessage>(currentChat, text);
     return {CommandType::CurrentChat, std::move(message), "", false};
 }
 
