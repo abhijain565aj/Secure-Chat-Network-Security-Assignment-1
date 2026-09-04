@@ -59,7 +59,7 @@ GENERATOR_SCRIPT := src/crypto/generate_certs.sh
 
 all: $(RUN_CLIENT) $(RUN_SERVER) $(RUN_PROXY) $(CERTIF_FILES) $(PROXY_CERTIF_FILES)
 
-client: $(RUN_CLIENT) $(CERTIF_FILES)
+client: $(RUN_CLIENT)
 	./$(RUN_CLIENT) $(SERVER_IP) $(SERVER_PORT) $(BUILD_DIR)/certs
 
 server: $(RUN_SERVER) $(CERTIF_FILES)
@@ -74,13 +74,13 @@ proxy-fake: $(RUN_PROXY) $(PROXY_CERTIF_FILES) $(CERTIF_FILES)
 proxy-thief: $(RUN_PROXY) $(CERTIF_FILES)
 	./$(RUN_PROXY) thief $(PROXY_THIEF_PORT) $(SERVER_IP) $(SERVER_PORT) $(BUILD_DIR)/certs
 
-victim-client: $(RUN_CLIENT) $(CERTIF_FILES)
+victim-client: $(RUN_CLIENT)
 	./$(RUN_CLIENT) $(PROXY_IP) $(PROXY_PORT) $(BUILD_DIR)/certs
 
-victim-client-fake: $(RUN_CLIENT) $(CERTIF_FILES) $(PROXY_CERTIF_FILES)
+victim-client-fake: $(RUN_CLIENT)
 	./$(RUN_CLIENT) $(PROXY_IP) $(PROXY_FAKE_PORT) $(BUILD_DIR)/certs
 
-victim-client-thief: $(RUN_CLIENT) $(CERTIF_FILES)
+victim-client-thief: $(RUN_CLIENT)
 	./$(RUN_CLIENT) $(PROXY_IP) $(PROXY_THIEF_PORT) $(BUILD_DIR)/certs
 
 $(RUN_CLIENT): $(CLIENT_OBJS) $(COMMON_OBJS)
