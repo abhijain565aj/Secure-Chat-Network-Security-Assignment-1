@@ -80,7 +80,7 @@ public:
 
 private:
     static constexpr std::size_t HEADER_SIZE = sizeof(MessageType);
-    static constexpr std::size_t MAX_PACKET_SIZE = 1024;
+    static constexpr std::size_t MAX_PACKET_SIZE = 4096;
 
     std::vector<uint8_t> buffer;
     std::size_t readOffset;

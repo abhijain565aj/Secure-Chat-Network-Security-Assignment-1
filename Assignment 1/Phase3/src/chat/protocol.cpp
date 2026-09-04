@@ -8,7 +8,7 @@
 #include <unordered_map>
 
 namespace {
-const uint32_t MAX_FRAME_SIZE = 1024;
+const uint32_t MAX_FRAME_SIZE = 4096;
 using Decoder = std::unique_ptr<Message> (*)(PacketBuffer&);
 const std::unordered_map<MessageType, Decoder> DECODERS = {
     {MessageType::User, &UserMessage::deserialize},
