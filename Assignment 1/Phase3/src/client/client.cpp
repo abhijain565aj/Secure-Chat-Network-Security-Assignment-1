@@ -22,8 +22,10 @@ Client::~Client(){
 }
 
 void Client::connectToServer(std::string IP, int port){
+    log_handshake("Connecting to " + IP + ":" + std::to_string(port));
     clientSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (clientSocket < 0) {
+        log_handshake(std::string("Socket creation failed: ") + std::strerror(errno));
         throw std::runtime_error(std::strerror(errno));
     }
 
@@ -31,15 +33,18 @@ void Client::connectToServer(std::string IP, int port){
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons(port);
     if (inet_pton(AF_INET, IP.c_str(), &serverAddress.sin_addr) != 1) {
+        log_handshake("Connection failed: invalid IP address");
         closeConnection();
         throw std::runtime_error("Invalid IP address");
     }
 
     if (connect(clientSocket, (struct sockaddr*)&serverAddress,
                 sizeof(serverAddress)) < 0) {
+        log_handshake(std::string("Connection failed: ") + std::strerror(errno));
         closeConnection();
         throw std::runtime_error(std::strerror(errno));
     }
+    log_handshake("TCP connection established");
 }
 
 void Client::eventLoop(){
@@ -53,12 +58,20 @@ void Client::eventLoop(){
 
         if (n < 0) {
             if (errno == EINTR) continue;
+            log_handshake(std::string("Poll failed: ") + std::strerror(errno));
             closeConnection();
             throw std::runtime_error(std::strerror(errno));
         }
 
         if (fds[0].revents & (POLLIN | POLLHUP | POLLERR)) {
             handleInput();
+        }
+
+        if (fds[1].revents & (POLLHUP | POLLERR | POLLNVAL)) {
+            log_handshake("Server connection closed unexpectedly");
+            running = false;
+            closeConnection();
+            return;
         }
 
         if (fds[1].revents & POLLIN) {
@@ -175,7 +188,9 @@ void Client::handle_recv(){
             terminalUi->printOutput(Presentation::server_message("active users requested"));
         }
     } catch (const std::exception& error) {
-        terminalUi->printOutput(Presentation::error_message(std::string("recv: ") + error.what()));
+        terminalUi->printOutput(Presentation::error_message(
+            std::string("Receive failed: ") + error.what()));
+        log_handshake("Closing connection after receive failure");
         running = false;
         closeConnection();
     }
@@ -254,7 +269,9 @@ void Client::handle_send(const Message& message, bool encrypt){
             send_message(clientSocket, message);
         }
     } catch (const std::exception& error) {
-        terminalUi->printOutput(Presentation::error_message(std::string("send: ") + error.what()));
+        terminalUi->printOutput(Presentation::error_message(
+            std::string("Send failed: ") + error.what()));
+        log_handshake("Closing connection after send failure");
         running = false;
         closeConnection();
     }

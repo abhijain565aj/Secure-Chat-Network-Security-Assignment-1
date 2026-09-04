@@ -54,11 +54,14 @@ TerminalUI::~TerminalUI() {
         delwin(promptWindow);
         endwin();
         if (!outputHistory.empty()) {
-            std::cerr << "\n--- Client session log ---\n";
+            std::cerr << "\r\n--- Client session log ---\r\n";
             for (const auto& message : outputHistory) {
-                std::cerr << message;
+                for (char character : message) {
+                    if (character == '\n') std::cerr << '\r';
+                    std::cerr << character;
+                }
             }
-            std::cerr << "--- End client session log ---\n";
+            std::cerr << "\r\n--- End client session log ---\r\n";
         }
     }
 }
@@ -195,7 +198,7 @@ void TerminalUI::printDivider(const std::string& text) {
     wattron(outputWindow, A_DIM);
     mvwhline(outputWindow, row + 2, 0, ACS_HLINE, getmaxx(outputWindow));
     wattroff(outputWindow, A_DIM);
-    wmove(outputWindow, row + 2, getmaxx(outputWindow) - 1);
+    wmove(outputWindow, row + 2, 0);
     waddch(outputWindow, '\n');
     wrefresh(outputWindow);
     refreshPrompt();
