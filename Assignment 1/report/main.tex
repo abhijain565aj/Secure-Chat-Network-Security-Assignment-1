@@ -1,0 +1,414 @@
+\documentclass[11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[a4paper,margin=0.85in]{geometry}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{microtype}
+\usepackage[hidelinks]{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, calc, shapes.geometric}
+
+\setlist{nosep,leftmargin=*}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}
+\setcounter{tocdepth}{2}
+
+% ---------- Evidence placeholders ----------
+% Replace the framed box in any placeholder with, for example:
+% \includegraphics[width=\linewidth]{images/phase3_fake_run1.png}
+\newcommand{\evidencebox}[1]{%
+  \fbox{\parbox[c][4.0cm][c]{0.92\linewidth}{\centering\textbf{IMAGE PLACEHOLDER}\\[3pt]#1}}%
+}
+\newcommand{\smallevidencebox}[1]{%
+  \fbox{\parbox[c][3.0cm][c]{0.90\linewidth}{\centering\small\textbf{IMAGE PLACEHOLDER}\\[2pt]#1}}%
+}
+
+% ---------- Replace before submission ----------
+\newcommand{\ServerIP}{\texttt{<SERVER-IP>}}
+\newcommand{\ClientOneIP}{\texttt{<C1-IP>}}
+\newcommand{\ClientTwoIP}{\texttt{<C2-IP>}}
+\newcommand{\MalloryIP}{\texttt{<MALLORY-IP>}}
+\newcommand{\ChatPort}{\texttt{<CHAT-PORT>}}
+
+\begin{document}
+
+\begin{titlepage}
+    \centering
+    {\scshape\bfseries\Huge Network Security\par}
+    \vspace{0.2cm}
+    {\scshape\bfseries\Huge (CS-6008)\par}
+    \vspace{0.8cm}
+    {\huge \textbf{Secure Chat Assignment -- Report}\par}
+    \vspace{1cm}
+    {\Large Sameer Arvind Patil (23B1035)\par}
+    {\Large Abhi Jain (23B0903)\par}
+    \vfill
+\end{titlepage}
+
+\tableofcontents
+\clearpage
+
+\section{Experimental Topology}
+
+The required four-node setup is used for attack demonstrations: one server, two clients, and a separate Mallory node for the MITM proxy. Though over adresses support multiple clients and multiple proxies.
+
+We use Makefile targets to launch the server, clients, and proxy in separate terminal windows. The server listens on ServerIP:ServerPort, while C1 and C2 connect to that address. Mallory is configured with its own IP and the server's IP for MITM operation. Anything can be run with any combination of IP addresses, port which can be specified by passing relevant arguments to the Makefile targets.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{images/commands.png}
+    \caption{Command-line tools inside the chat}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{images/interface.png}
+    \caption{Interface of the secure chat application.}
+\end{figure}
+% =================================================
+% PHASE 1
+% =================================================
+\section{Phase 1 -- Baseline Chat}
+
+\subsection{Implementation}
+
+TCP provides a byte stream rather than message boundaries, so the protocol uses \textbf{length-prefixed framing}: every serialized message is preceded by a 4-byte length field. The receiver first reads the length and then repeatedly calls \texttt{recv()} until exactly that many bytes have been collected. Thus, a message is complete only when its full framed payload has arrived.
+
+The server maintains logged-in users in a username-to-socket registry. Messages such as \texttt{@username message} are routed by looking up the destination username and forwarding the message to that socket. This logic is not tied to exactly two users and can route among any number of registered clients. The required \texttt{/chat}, \texttt{/who}, and \texttt{/quit} commands are also handled by the client/server protocol.
+
+\subsection{Verification}
+
+The server logs each relayed message in plaintext, confirming that in Phase 1 the server can read complete chat contents. Wireshark likewise exposes the plaintext when following the corresponding TCP stream.
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.90\linewidth]{images/phase1/usage.png}
+    \caption{Server can read message contents in Phase 1.}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{images/phase1/wireshark.png}
+    \caption{Plaintext visible in the Phase 1 packet capture.}
+\end{figure}
+
+% =================================================
+% PHASE 2
+% =================================================
+\section{Phase 2 -- Client--Server Confidentiality}
+
+\subsection{DH and AES-GCM Design}
+
+Each client performs an independent Diffie--Hellman exchange with the server. The submitted implementation uses a fixed published MODP-style prime constant (named \texttt{RFC3526\_GROUP14\_PRIME} in the code), generator $g=2$, and implements modular exponentiation directly using square-and-multiply over OpenSSL \texttt{BIGNUM} arithmetic rather than a library DH API.
+
+After computing the DH shared secret $s$, the application derives the 256-bit symmetric key as
+\[
+K = \mathrm{SHA256}(\mathrm{encode}(s)).
+\]
+The raw DH value is hashed so that the variable-format group element is converted into a fixed-size, uniformly formatted 256-bit key suitable for AES-256, while avoiding direct use of the raw shared secret as an AES key.
+
+All post-handshake protocol messages are encrypted using AES-256-GCM. Each ciphertext carries the GCM IV/nonce and authentication tag. Therefore, GCM provides both confidentiality and integrity: altered ciphertext fails authentication instead of producing silently corrupted plaintext.
+
+\subsection{Required Verification}
+
+Both endpoints print only a hash-based fingerprint of the derived secret/key material; matching fingerprints demonstrate that the two sides derived the same channel key without revealing the raw secret.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.80\linewidth]{images/phase2/DH_fingerprints.png}
+\caption{Matching key fingerprints at both ends of exchange: Server and Client.}
+\end{figure}
+
+\subsection{Wireshark Capture}
+
+Repeating the Phase 1 Wireshark experiment shows framed ciphertext instead of readable chat content.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{images/phase2/wireshark.png}
+    \caption{Chat content is no longer readable on the client--server link.}
+\end{figure}
+
+\subsection{Integrity Test}
+
+For the integrity test, the implementation supports intentionally modifying a ciphertext byte before reception. AES-GCM rejects the modified record because the authentication tag no longer verifies.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{images/phase2/tamper1.png}
+    \caption{Single-byte ciphertext modification attempt using \texttt{/tamper} command.}
+\end{figure}
+\begin{figure}[H]
+\centering
+    \includegraphics[width=0.75\linewidth]{images/phase2/tamper2.png}
+\caption{Phase 2 tamper test attempt showing GCM authentication/decryption failure}
+\end{figure}
+
+\subsection{MITM Attack}
+
+The Phase 2 MITM proxy is placed on Mallory between the victim client and the real server. It performs two independent DH exchanges: one while posing as the server to the client and another while posing as the client to the real server. The proxy therefore obtains one AES key for each side, decrypts a received message, logs its plaintext, and re-encrypts it under the key for the other link.
+
+
+\begin{tikzpicture}[
+    >=Latex,
+    thick,
+    entity/.style={draw, minimum width=3cm, minimum height=1.2cm, fill=gray!10, align=center, font=\sffamily\bfseries},
+    client/.style={entity, fill=blue!10, draw=blue!60!black},
+    mallory/.style={entity, fill=red!10, draw=red!60!black},
+    server/.style={entity, fill=green!10, draw=green!60!black},
+    actionbox/.style={draw=red!80, fill=red!5, rounded corners, align=center, text width=4cm, font=\sffamily\small, inner sep=6pt},
+    notebox/.style={draw=gray!50, fill=white, rounded corners, font=\sffamily\small, inner sep=4pt}
+]
+
+    % Define X coordinates for the lifelines
+    \def\clientX{0}
+    \def\malloryX{6}
+    \def\serverX{12}
+    \def\bottomY{-10}
+
+    % Nodes for the entities
+    \node[client] (C) at (\clientX, 0) {Victim Client};
+    \node[mallory] (M) at (\malloryX, 0) {Mallory\\(MITM Proxy)};
+    \node[server]  (S) at (\serverX, 0) {Real Server};
+
+    % Draw Lifelines
+    \draw[dashed, draw=gray!70] (C.south) -- (\clientX, \bottomY);
+    \draw[dashed, draw=gray!70] (M.south) -- (\malloryX, \bottomY);
+    \draw[dashed, draw=gray!70] (S.south) -- (\serverX, \bottomY);
+
+    % ---------------------------------------------------------
+    % DH Exchange 1: Client <--> Mallory
+    % ---------------------------------------------------------
+    \draw[<->] (\clientX, -1.5) -- (\malloryX, -1.5) 
+        node[midway, above, font=\sffamily\small] {DH Exchange 1 (posing as Server)};
+    
+    \node[notebox, draw=blue!50] at ($(\clientX, -2.3)!0.5!(\malloryX, -2.3)$) {Establishes AES Key 1 ($K_1$)};
+
+    % ---------------------------------------------------------
+    % DH Exchange 2: Mallory <--> Server
+    % ---------------------------------------------------------
+    \draw[<->] (\malloryX, -3.5) -- (\serverX, -3.5) 
+        node[midway, above, font=\sffamily\small] {DH Exchange 2 (posing as Client)};
+    
+    \node[notebox, draw=green!50] at ($(\malloryX, -4.3)!0.5!(\serverX, -4.3)$) {Establishes AES Key 2 ($K_2$)};
+
+    % ---------------------------------------------------------
+    % Message Forwarding & Interception
+    % ---------------------------------------------------------
+    % 1. Client sends encrypted message to Mallory
+    \draw[->] (\clientX, -5.8) -- (\malloryX, -5.8) 
+        node[midway, above, font=\sffamily\small] {Encrypted under $K_1$};
+
+    % 2. Mallory intercepts, decrypts, logs, re-encrypts
+    \node[actionbox] at (\malloryX, -7.2) {
+        1. Decrypts with $K_1$\\
+        2. \textbf{Logs Plaintext Message}\\
+        3. Re-encrypts with $K_2$
+    };
+
+    % 3. Mallory sends newly encrypted message to Server
+    \draw[->] (\malloryX, -8.6) -- (\serverX, -8.6) 
+        node[midway, above, font=\sffamily\small] {Encrypted under $K_2$};
+
+\end{tikzpicture}
+
+\begin{figure}[H]
+\centering
+    \includegraphics[width=\linewidth]{images/phase2/proxy_use.png}
+    \caption{Demonstration of the Phase 2 Man-in-the-Middle proxy attack. The proxy (top right) successfully intercepts, decrypts, and logs the plaintext communications between the chat server (top left) and the victim client (bottom left pane) without alerting the users.}
+% \caption{Phase 2 tamper test showing GCM authentication/decryption failure}
+\end{figure}
+
+The main observable indication is that the client and real server do \emph{not} share the same DH fingerprint with each other: each instead shares a different key with Mallory. However, without an authenticated reference fingerprint or authenticated server identity, an ordinary user has no trusted value against which to compare the result. The connection still functions normally, so the attack is unlikely to be noticed from the chat interface alone.
+
+% =================================================
+% PHASE 3
+% =================================================
+\section{Phase 3 -- Server Authentication via PKI}
+
+\subsection{PKI Setup}
+
+A private CA and CA-signed server certificate are generated with OpenSSL. The server certificate uses identity \texttt{chat-server}, including \texttt{subjectAltName = DNS:chat-server}. The client stores only the trusted CA certificate; the CA private key is not distributed.
+
+The implemented certificate-generation flow is summarized below:
+
+\begin{lstlisting}[basicstyle=\ttfamily\small,breaklines=true]
+openssl genrsa -out ca.key 4096
+openssl req -x509 -new -key ca.key -sha256 -days 3650 \
+  -out ca.crt \
+  -subj "/C=IN/ST=Maharashtra/L=Mumbai/O=MyChat/OU=CA/CN=MyChat Root CA"
+
+openssl genrsa -out server.key 2048
+openssl req -new -key server.key -out server.csr \
+  -subj "/C=IN/ST=Maharashtra/L=Mumbai/O=MyChat/OU=Server/CN=chat-server"
+
+# server-ext.cnf contains:
+# subjectAltName = DNS:chat-server
+# extendedKeyUsage = serverAuth
+
+openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key \
+  -CAcreateserial -out server.crt -days 365 -sha256 \
+  -extfile server-ext.cnf
+
+openssl verify -CAfile ca.crt server.crt
+\end{lstlisting}
+
+\subsection{Authenticated Handshake Design}
+
+Before DH key establishment, the server sends its certificate. The client builds a trust store containing its local \texttt{ca.crt} and verifies the certificate chain/signature and validity through X.509 verification. It then checks the expected server identity \texttt{chat-server} using hostname validation. If any certificate check fails, the connection is aborted before the DH exchange or application login proceeds.
+
+A valid certificate alone is insufficient because an attacker could copy \texttt{server.crt}. The server must also prove possession of the matching private key. The client sends a fresh challenge $R$ together with its DH public value $A$. The server chooses its DH public value $B$ and signs the transcript
+\[
+\texttt{``MYCHAT-HANDSHAKE-V1''} \parallel R \parallel A \parallel B.
+\]
+The client verifies this signature with the public key extracted from the validated server certificate. Only then does it derive the DH/AES key. Binding $R$, $A$, and $B$ to the signature also makes the proof specific to the current handshake.
+
+\subsection{Verification and Proxy Re-attempts}
+
+Three proxy modes are present in the Phase 3 implementation. For each mode, three independent runs are recorded below as requested.
+
+\subsection{Phase2 proxy}
+Since here the proxy has no certificate, it cannot even attempt a MITM. The client aborts the connection before any DH exchange.
+
+\subsubsection*{Normal proxy -- legitimate authenticated flow}
+
+In \texttt{normal} mode Mallory only forwards raw framed traffic. The genuine server certificate and genuine proof-of-possession signature reach the client unchanged, so certificate validation, signature verification, and DH establishment succeed. The proxy has no session key and cannot inspect encrypted application contents. It only relays opaque ciphertext between the client and server.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{images/phase3/normal-proxy.png}
+    \caption{Normal proxy: legitimate Phase 3 handshake succeeds while Mallory only relays opaque traffic. (Proxy on top-left, Victim-Client on top-right, Real-Server on bottom)}
+\end{figure}
+
+\subsubsection*{Fake-certificate proxy -- invalid CA chain}
+
+In \texttt{fake} mode the proxy attempts an active MITM using its own certificate/private-key pair. Although it can create a proof for its own key, its certificate is not signed by the CA trusted by the victim. The client therefore fails certificate validation and aborts before establishing a DH channel with Mallory. This directly contrasts with Phase 2, where the same split-DH strategy succeeded because no server authentication existed through a trusted CA.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{images/phase3/fake-proxy.png}
+    \caption{Fake-certificate MITM is stopped by CA-based certificate validation.\\ (Proxy on top-left, Victim-Client on top-right, Real-Server on bottom)}
+\end{figure}
+
+\subsubsection*{Stolen-certificate proxy -- no private key}
+
+In \texttt{thief} mode Mallory forwards/presents the genuine server certificate but does not possess \texttt{server.key}. The certificate can therefore pass CA and hostname checks, but Mallory cannot create the required signature over the fresh $R,A,B$ transcript. The handshake cannot complete and the client does not establish an authenticated channel with the attacker.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{images/phase3/thief-proxy.png}
+    \caption{A copied certificate without the corresponding private key is insufficient. (Proxy on top-left, Victim-Client on top-right, Real-Server on bottom)}
+\end{figure}
+
+\subsection{Phase 3 Result}
+
+Phase 2 protected confidentiality only against passive observers; an active proxy could still replace the DH exchange. Phase 3 prevents that attack by requiring both (i) a certificate chaining to the client's trusted CA and identifying \texttt{chat-server}, and (ii) a fresh proof that the peer actually owns the certified private key. Consequently, neither an attacker-generated certificate nor a copied genuine certificate by itself is enough to impersonate the server.
+
+% =================================================
+% PHASE 4 TEMPLATE
+% =================================================
+\section{Phase 4 -- End-to-End Encryption Between Clients}
+\textit{Template: fill the bracketed fields after implementation/testing.}
+
+\subsection{Design}
+
+The existing authenticated and encrypted client--server channels from Phase 3 remain unchanged. The server continues to route by username, but C1 and C2 additionally establish a client-to-client key that the server cannot derive. The exchange is initiated with \texttt{/e2e username}.
+
+The required wire tags are used inside the routed payload:
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Tag & Purpose \\
+\midrule
+\texttt{\_\_E2E\_INIT\_\_} & Initiate/re-initiate client-to-client key exchange \\
+\texttt{\_\_E2E\_ACK\_\_} & Return key-exchange data / complete establishment \\
+\texttt{\_\_E2E\_MSG\_\_} & Carry end-to-end encrypted chat payload \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Implementation details to fill:} [Describe the C1--C2 DH values carried in INIT/ACK, how the E2E AES key is derived, nonce/tag format, and how per-peer session state is stored.] The server does not interpret these tags cryptographically; it only forwards the opaque routed payload.
+
+\subsection{Verification}
+
+\begin{figure}[H]
+\centering
+\evidencebox{Phase 4 C1 and C2 output showing matching independently computed E2E fingerprints}
+\caption{C1 and C2 derive the same end-to-end key.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\evidencebox{Phase 4 server log: readable message before E2E vs opaque payload after E2E}
+\caption{The server retains routing metadata but cannot read post-E2E chat contents.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\evidencebox{Phase 4 functional test: C1 sends an E2E message and C2 decrypts/displays it}
+\caption{End-to-end encrypted messaging remains functionally correct.}
+\end{figure}
+
+\textbf{Result to fill:} [State the matching fingerprint, what the server log displayed, and the successfully received plaintext at the peer.]
+
+% =================================================
+% PHASE 5 TEMPLATE
+% =================================================
+\section{Phase 5 -- Forward Secrecy}
+\textit{Template: fill the bracketed fields after implementation/testing.}
+
+\subsection{Rekey Design}
+
+The Phase 4 end-to-end session is automatically renegotiated every 60 seconds. Each rotation uses fresh DH private values so that the newly derived key is independent of the previous key. After both clients confirm the new key, the old key is erased and is never reused.
+
+\textbf{Simultaneous-rekey handling:} [Describe the deterministic collision-avoidance rule used when both clients initiate at nearly the same time---for example, a session/generation identifier plus a deterministic initiator tie-break. Explain why both clients converge to the same generation/key.] Ongoing chat remains usable during the transition by [describe pending-key / generation handling].
+
+\subsection{Rotation Verification}
+
+\begin{figure}[H]
+\centering
+\evidencebox{Phase 5 client logs with timestamps and fingerprints for initial key, rotation 1, and rotation 2 on both C1 and C2}
+\caption{At least two rotations: fingerprint changes each time and matches across both clients.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\evidencebox{Phase 5 message sent immediately after a rotation and correctly decrypted by the peer}
+\caption{Key rotation does not break the active chat session.}
+\end{figure}
+
+\subsection{What Forward Secrecy Adds}
+
+\textbf{Fill in your own words:} [Explain specifically that compromise of one current E2E session key should expose only data protected under that key/generation, not messages protected under already-discarded independent keys. Contrast this with Phase 4's single long-lived E2E key, where compromise of that one key could expose all traffic encrypted under it if ciphertext had been recorded. Also state what forward secrecy does \emph{not} protect, e.g., messages encrypted under the compromised current key while it remains active.]
+
+% =================================================
+% APPENDIX
+% =================================================
+\appendix
+\section{Generative AI Prompt Log}
+
+The assignment requires all prompts used with generative AI to be documented. Add the exact prompts used during implementation/report preparation. A compact format is sufficient.
+
+\begin{center}
+\begin{tabular}{@{}p{0.14\linewidth}p{0.16\linewidth}p{0.61\linewidth}@{}}
+\toprule
+Date & Phase & Prompt \\
+\midrule
+\texttt{<date>} & \texttt{<phase>} & \texttt{<paste exact prompt>} \\
+\texttt{<date>} & \texttt{<phase>} & \texttt{<paste exact prompt>} \\
+\texttt{<date>} & \texttt{<phase>} & \texttt{<paste exact prompt>} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\end{document}
