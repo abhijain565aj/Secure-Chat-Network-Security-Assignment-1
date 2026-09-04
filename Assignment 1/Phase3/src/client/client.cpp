@@ -2,6 +2,8 @@
 #include "chat/command.hpp"
 #include "chat/protocol.hpp"
 #include "chat/presentation.hpp"
+#include "crypto/certificate.hpp"
+#include <openssl/x509.h>
 #include <arpa/inet.h>
 #include <stdexcept>
 #include <unistd.h>
@@ -142,8 +144,6 @@ void Client::handle_recv(){
             auto& dh_params_msg = static_cast<DHParametersMessage&>(*message);
             dh_params = dh_params_msg.get_parameters();
             dh_keypair = DHE::getNewKeyPair(dh_params);
-            DHKeyMessage dh_key_msg(dh_keypair.get_public_key());
-            handle_send(dh_key_msg, false);
             break;
         }
         case MessageType::DHKeyMsg:{
@@ -151,6 +151,11 @@ void Client::handle_recv(){
             server_public_key = dh_key_msg.get_public_key();
             server_aes_key = DHE::deriveAESKey(
                 dh_keypair.get_private_key(), server_public_key.get(), dh_params.get_p());
+            break;
+        }
+        case MessageType::CertificateMsg: {
+            auto& cert_msg = static_cast<CertificateMessage&>(*message);
+            validateServerCertificate(cert_msg.get_certificate());
             break;
         }
         default:
@@ -161,6 +166,38 @@ void Client::handle_recv(){
         running = false;
         closeConnection();
     }
+}
+
+void Client::validateServerCertificate(const std::vector<uint8_t>& certBytes) {
+    serverCertificate = Certificate::parseCertificate(certBytes);
+    if (!serverCertificate) {
+        close(clientSocket);
+        throw std::runtime_error("Failed to parse server certificate");
+    }
+    if (!Certificate::validateCertificate(
+        serverCertificate,
+        "certs/ca.crt",
+        "chat-server"))
+    {
+        X509_free(serverCertificate);
+        close(clientSocket);
+
+        throw std::runtime_error("Server certificate validation failed");
+    }
+
+    serverPublicKey = Certificate::getPublicKey(
+        serverCertificate
+    );
+
+    if (!serverPublicKey) {
+        X509_free(serverCertificate);
+        close(clientSocket);
+        throw std::runtime_error("Failed to extract public key from server certificate");
+    }
+
+    auto R = DHE::generateChallenge();
+    RAMessage ra_msg(dh_keypair.get_public_key(), R);
+    handle_send(ra_msg, false);
 }
 
 void Client::handle_send(const Message& message, bool encrypt){

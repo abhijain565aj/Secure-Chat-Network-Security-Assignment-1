@@ -10,6 +10,24 @@
 #include <unistd.h>
 #include <iostream>
 #include <arpa/inet.h>
+#include "crypto/certificate.hpp"
+#include "crypto/signature.hpp"
+
+Server::Server(int _port_no): PORT_NO(_port_no) {
+    serverCertificate =
+        Certificate::loadCertificate(
+            "certs/server.crt"
+        );
+
+    serverPrivateKey =
+        Signature::loadPrivateKey(
+            "certs/server.key"
+        );
+
+    if (!serverCertificate || !serverPrivateKey) {
+        throw std::runtime_error("Failed to load server credentials");
+    }
+}
 
 Server::~Server(){
     stopServer();
@@ -131,13 +149,20 @@ void Server::accept_new_clients(){
         close_client(clientSocket);
         throw std::runtime_error("Unknown client");
     }
+
+    auto certificate =
+        Certificate::readCertificateBytes(
+            "certs/server.crt"
+        );
+
+    // send the DH parameters and server certificate to the client
     DHParametersMessage dh_params_message(dh_params);
     handle_send(user, dh_params_message, false);
-    DHKeyMessage dh_key_message(dh_keypair.get_public_key());
-    handle_send(user, dh_key_message, false);
+    CertificateMessage certificateMessage(certificate);
+    handle_send(user, certificateMessage, false);
 
     std::cout << Presentation::server_log(
-        "Sent DH parameters and server public key to client (fd " +
+        "Sent DH parameters to client (fd " +
         std::to_string(clientSocket) + ")") << std::endl;
 }
 
@@ -153,19 +178,16 @@ void Server::handle_client(int client_fd){
         }
         log_request(client_fd, *message);
 
-        switch (message->type()) {
-        case MessageType::DHKeyMsg:{
-            DHKeyMessage& dh_key_msg = static_cast<DHKeyMessage&>(*message);
-            DHE::DHKey client_public_key = dh_key_msg.get_public_key();
-            addClientPublicKey(client_fd, client_public_key);
-            std::cout << Presentation::server_log(
-                "Received client public key from fd " +
-                std::to_string(client_fd)) << std::endl;
+        switch (message->type()){
+        case MessageType::RAMsg: {
+            auto& ra_msg = static_cast<RAMessage&>(*message);
+            handle_RAMessage(user, ra_msg);
             break;
         }
-        case MessageType::Login:
+        case MessageType::Login:{
             handle_login(*user, static_cast<LoginMessage&>(*message));
             break;
+        }
         default:
             if (!user->is_logged_in()) {
             ServerMessage response("Please login first.");
@@ -196,6 +218,31 @@ void Server::handle_client(int client_fd){
     }
 }
 
+void Server::handle_RAMessage(User* user, const RAMessage& ra_msg) {
+    add_client_public_key(user->get_file_descriptor(), ra_msg.get_public_key());
+    std::cout << Presentation::server_log(
+        "Received client's public key and challenge (fd " +
+        std::to_string(user->get_file_descriptor()) + ")") << std::endl;
+    
+    auto&& R = ra_msg.get_challenge();
+    auto&& A_bytes = ra_msg.get_public_key_bytes();
+    auto&& B_bytes = DHE::BIGNUMToBytes(dh_keypair.get_public_key());
+
+    std::vector<uint8_t> transcript;
+    const char* version = "MYCHAT-HANDSHAKE-V1";
+
+    transcript.insert(transcript.end(),version,version + strlen(version));
+
+    transcript.insert(transcript.end(),R.begin(),R.end());
+    transcript.insert(transcript.end(),A_bytes.begin(),A_bytes.end());
+    transcript.insert(transcript.end(),B_bytes.begin(),B_bytes.end());
+
+    auto signature = Signature::sign(
+        serverPrivateKey,
+        transcript
+    );
+}
+
 void Server::handle_send(User* user, Message& message, bool encrypt) {
     if (user == nullptr) throw std::runtime_error("Unknown client");
     if (encrypt) {
@@ -216,7 +263,7 @@ void Server::close_client(int client_fd){
               fds.end());
 }
 
-void Server::addClientPublicKey(int client_fd, DHE::DHKey public_key) {
+void Server::add_client_public_key(int client_fd, DHE::DHKey public_key) {
     User* user = users.find_by_file_descriptor(client_fd);
     if (user == nullptr) throw std::runtime_error("Unknown client");
     DHE::AES_KEY aes_key = DHE::deriveAESKey(

@@ -18,7 +18,9 @@ enum class MessageType : uint8_t {
     Server = 4, 
     DHParametersMsg = 5,
     DHKeyMsg = 6,
-    Ciphertext = 7
+    RAMsg = 7,
+    CertificateMsg = 7,
+    Ciphertext = 8
 };
 
 class Message{
@@ -99,6 +101,27 @@ public:
     DHE::DHKey get_public_key() const { return DHE::DHKey(DHE::BytesToBIGNUM(public_key)); }
 };
 
+class RAMessage : public Message {
+    std::vector<uint8_t> public_key; // A
+    std::array<uint8_t, 32> challenge; // R
+public:
+    explicit RAMessage(BIGNUM* public_key, std::array<unsigned char, 32> challenge);
+    MessageType type() const override { return MessageType::RAMsg; }
+    void serialize(PacketBuffer& packet) const override;
+    static std::unique_ptr<Message> deserialize(PacketBuffer& packet);
+    DHE::DHKey get_public_key() const { return DHE::DHKey(DHE::BytesToBIGNUM(public_key)); }
+    const std::array<unsigned char, 32>& get_challenge() const { return challenge; }
+    const std::vector<uint8_t>& get_public_key_bytes() const { return public_key; }
+};
+class CertificateMessage : public Message {
+    std::vector<uint8_t> certificate;
+public:
+    explicit CertificateMessage(const std::vector<uint8_t>& certificate);
+    MessageType type() const override { return MessageType::CertificateMsg; }
+    void serialize(PacketBuffer& packet) const override;
+    static std::unique_ptr<Message> deserialize(PacketBuffer& packet);
+    const std::vector<uint8_t>& get_certificate() const { return certificate; }
+};
 class CiphertextMsg : public Message {
     AES::Ciphertext ciphertext;
 public:
@@ -112,4 +135,6 @@ public:
     explicit CiphertextMsg(const Message& message, const DHE::AES_KEY& aes_key);
     std::unique_ptr<Message> getMsg(const DHE::AES_KEY& aes_key) const;
 };
+
+
 #endif

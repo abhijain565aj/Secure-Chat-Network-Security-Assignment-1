@@ -27,8 +27,9 @@ class Client{
     DHE::DHKeyPair dh_keypair;
     DHE::DHKey server_public_key;
     DHE::AES_KEY server_aes_key;
-    
-    void handleInput();
+
+    X509* serverCertificate;
+    EVP_PKEY* serverPublicKey;
 
 public:
     Client();
@@ -38,8 +39,10 @@ public:
     void closeConnection();
     
 private:
+    void handleInput();
     void handle_recv();
     void handle_send(const Message& message, bool encrypt = true);
+    void validateServerCertificate(const std::vector<uint8_t>& certBytes);
 };
 
 #endif // CLIENT_HPP

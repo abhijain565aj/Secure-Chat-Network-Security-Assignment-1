@@ -112,3 +112,30 @@ std::unique_ptr<Message> CiphertextMsg::getMsg(const DHE::AES_KEY& aes_key) cons
     auto decrypted = AES::decrypt(aes_key, ciphertext);
     return deserialize_message(decrypted);
 }
+
+CertificateMessage::CertificateMessage(const std::vector<uint8_t>& certificate)
+    : Message(), certificate(std::move(certificate)) {}
+
+void CertificateMessage::serialize(PacketBuffer& packet) const {
+    packet << certificate;
+}
+
+std::unique_ptr<Message> CertificateMessage::deserialize(PacketBuffer& packet) {
+    std::vector<uint8_t> certificate;
+    packet >> certificate;
+    return std::make_unique<CertificateMessage>(std::move(certificate));
+}
+
+RAMessage::RAMessage(BIGNUM* public_key, std::array<unsigned char, 32> challenge)
+    : Message(), public_key(DHE::BIGNUMToBytes(public_key)), challenge(challenge) {}
+
+void RAMessage::serialize(PacketBuffer& packet) const {
+    packet << public_key << challenge;
+}
+
+std::unique_ptr<Message> RAMessage::deserialize(PacketBuffer& packet) {
+    std::vector<uint8_t> public_key;
+    std::array<unsigned char, 32> challenge;
+    packet >> public_key >> challenge;
+    return std::make_unique<RAMessage>(DHE::BytesToBIGNUM(public_key), challenge);
+}

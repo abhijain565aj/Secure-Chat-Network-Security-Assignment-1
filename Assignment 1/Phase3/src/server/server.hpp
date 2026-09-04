@@ -24,6 +24,9 @@ class Server{
     DHE::DHParameters dh_params;
     DHE::DHKeyPair dh_keypair;
 
+    X509* serverCertificate;
+    EVP_PKEY* serverPrivateKey;
+
 public:
     Server(int _port_no): PORT_NO(_port_no) {}
     ~Server();
@@ -40,8 +43,8 @@ private:
     void handle_user_message(int client_fd, User& user, const UserMessage& message);
     void handle_who(int client_fd, const User& user);
     void log_request(int client_fd, const Message& message) const;
-    void addClientPublicKey(int client_fd, DHE::DHKey public_key);
-
+    void add_client_public_key(int client_fd, DHE::DHKey public_key);
+    void handle_RAMessage(User* user, const RAMessage& ra_msg);
 };
 
 #endif // SERVER_HPP
