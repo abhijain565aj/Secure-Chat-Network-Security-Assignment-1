@@ -11,7 +11,10 @@
 #include <cstring>
 #include <cerrno>
 #include <filesystem>
+#include <ctime>
+#include <iomanip>
 #include <iostream>
+#include <sstream>
 
 namespace {
 bool has_tag(const std::string& value, const char* tag) {
@@ -131,6 +134,7 @@ void Client::eventLoop(){
         if (fds[1].revents & POLLIN) {
             handle_recv();
         }
+        handle_rekey_timer();
     }
 }
 
@@ -210,7 +214,10 @@ void Client::handle_recv(){
             auto& user = static_cast<UserMessage&>(*message);
                 if (has_tag(user.get_message(), E2E::INIT_TAG) ||
                     has_tag(user.get_message(), E2E::ACK_TAG) ||
-                    has_tag(user.get_message(), E2E::MESSAGE_TAG)) {
+                    has_tag(user.get_message(), E2E::MESSAGE_TAG) ||
+                    has_tag(user.get_message(), E2E::REKEY_REQUEST_TAG) ||
+                    has_tag(user.get_message(), E2E::REKEY_RESPONSE_TAG) ||
+                    has_tag(user.get_message(), E2E::REKEY_CONFIRM_TAG)) {
                     handle_e2e_message(user);
                     break;
                 }
@@ -275,6 +282,7 @@ void Client::begin_e2e(const std::string& peerUsername) {
     E2E::Session session(dh_params);
     const std::string payload = session.begin();
     e2eSessions.insert_or_assign(peerUsername, std::move(session));
+    rekeyManagers.insert_or_assign(peerUsername, RekeyManager{});
     UserMessage init(peerUsername, payload);
     handle_send(init);
     terminalUi->printOutput(Presentation::server_message(
@@ -287,12 +295,16 @@ void Client::handle_e2e_message(const UserMessage& message) {
     const std::string& peerUsername = isOwnEcho
         ? message.get_username() : message.get_sender();
     if (isOwnEcho &&
-        (has_tag(payload, E2E::INIT_TAG) || has_tag(payload, E2E::ACK_TAG)))
+        (has_tag(payload, E2E::INIT_TAG) || has_tag(payload, E2E::ACK_TAG) ||
+         has_tag(payload, E2E::REKEY_REQUEST_TAG) ||
+         has_tag(payload, E2E::REKEY_RESPONSE_TAG) ||
+         has_tag(payload, E2E::REKEY_CONFIRM_TAG)))
         return;
     if (has_tag(payload, E2E::INIT_TAG)) {
         E2E::Session session(dh_params);
         const std::string ack = session.accept_init(payload);
         e2eSessions.insert_or_assign(peerUsername, std::move(session));
+        rekeyManagers.insert_or_assign(peerUsername, RekeyManager{});
         UserMessage response(peerUsername, ack);
         handle_send(response);
         terminalUi->printOutput(Presentation::server_message(
@@ -302,6 +314,23 @@ void Client::handle_e2e_message(const UserMessage& message) {
     auto session = e2eSessions.find(peerUsername);
     if (session == e2eSessions.end())
         throw std::runtime_error("Received E2E data without a session");
+    if (session->second.is_rekey_payload(payload)) {
+        const std::string previousFingerprint = session->second.key_fingerprint();
+        const std::string response = session->second.handle_rekey(payload);
+        if (!response.empty()) {
+            UserMessage rekeyMessage(peerUsername, response);
+            handle_send(rekeyMessage);
+            if (has_tag(payload, E2E::REKEY_RESPONSE_TAG)) {
+                session->second.confirm_rekey();
+                log_key_rotation(peerUsername, session->second);
+                rekeyManagers[peerUsername].schedule_next();
+            }
+        } else if (previousFingerprint != session->second.key_fingerprint()) {
+            log_key_rotation(peerUsername, session->second);
+            rekeyManagers[peerUsername].schedule_next();
+        }
+        return;
+    }
     if (has_tag(payload, E2E::ACK_TAG)) {
         session->second.accept_ack(payload);
         terminalUi->printOutput(Presentation::server_message(
@@ -316,6 +345,31 @@ void Client::handle_e2e_message(const UserMessage& message) {
         return;
     }
     throw std::runtime_error("Unknown E2E wire tag");
+}
+
+void Client::handle_rekey_timer() {
+    if (!secureChannelEstablished || username.empty()) return;
+    for (auto& [peerUsername, session] : e2eSessions) {
+        if (!session.is_established() || session.is_rekey_pending() ||
+            username >= peerUsername) continue;
+        auto manager = rekeyManagers.find(peerUsername);
+        if (manager == rekeyManagers.end() || !manager->second.due()) continue;
+        const std::string request = session.begin_rekey();
+        handle_send(UserMessage(peerUsername, request));
+        manager->second.schedule_next();
+        log_handshake("E2E rekey started with @" + peerUsername);
+    }
+}
+
+void Client::log_key_rotation(const std::string& peerUsername,
+                              const E2E::Session& session) {
+    const std::time_t now = std::time(nullptr);
+    std::tm localTime{};
+    localtime_r(&now, &localTime);
+    std::ostringstream timestamp;
+    timestamp << std::put_time(&localTime, "%Y-%m-%d %H:%M:%S");
+    log_handshake("E2E key rotation with @" + peerUsername + " at " +
+                  timestamp.str() + " fingerprint=" + session.key_fingerprint());
 }
 
 void Client::log_handshake(const std::string& message) {

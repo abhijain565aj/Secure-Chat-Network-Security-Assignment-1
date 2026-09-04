@@ -12,6 +12,7 @@
 #include "chat/message.hpp"
 #include "crypto/dhe.hpp"
 #include "crypto/e2e_session.hpp"
+#include "crypto/rekey_manager.hpp"
 
 class Client{
     const static int BUFFER_SIZE = 1024;
@@ -34,6 +35,7 @@ class Client{
     std::array<uint8_t, 32> handshake_challenge{};
     bool secureChannelEstablished = false;
     std::unordered_map<std::string, E2E::Session> e2eSessions;
+    std::unordered_map<std::string, RekeyManager> rekeyManagers;
 
     X509* serverCertificate;
     EVP_PKEY* serverPublicKey;
@@ -54,6 +56,9 @@ private:
     void handle_signature_message(const BSignatureMessage& message);
     void begin_e2e(const std::string& peerUsername);
     void handle_e2e_message(const UserMessage& message);
+    void handle_rekey_timer();
+    void log_key_rotation(const std::string& peerUsername,
+                          const E2E::Session& session);
     void log_handshake(const std::string& message);
     void validateServerCertificate(const std::vector<uint8_t>& certBytes);
 };
