@@ -1,0 +1,51 @@
+#ifndef SERVER_HPP
+#define SERVER_HPP
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <poll.h>
+#include <vector>
+#include <string>
+#include "chat/message.hpp"
+#include "user_registry.hpp"
+#include "crypto/dhe.hpp"
+
+class Server{
+    const static int MAX_EVENTS = 1024;
+    const static int BUFFER_SIZE = 1024;
+
+    int PORT_NO;
+    std::string certificateDirectory;
+    sockaddr_in serverAddress;
+    int serverSocket = -1;
+
+    std::vector<pollfd> fds;
+    UserRegistry users;
+
+    DHE::DHParameters dh_params;
+    DHE::DHKeyPair dh_keypair;
+
+    X509* serverCertificate;
+    EVP_PKEY* serverPrivateKey;
+
+public:
+    explicit Server(int _port_no, std::string certificate_directory = "certs");
+    ~Server();
+    void startServer();
+    void stopServer();
+    void eventLoop();
+
+private:
+    void accept_new_clients();
+    void handle_client(int client_fd);
+    void close_client(int client_fd);
+    void handle_send(User* user, Message& message, bool encrypt = true);
+    void handle_login(User& user, const LoginMessage& message);
+    void handle_user_message(int client_fd, User& user, const UserMessage& message);
+    void handle_who(int client_fd, const User& user);
+    void log_request(int client_fd, const Message& message) const;
+    void add_client_public_key(int client_fd, DHE::DHKey public_key);
+    void handle_RAMessage(User* user, const RAMessage& ra_msg);
+};
+
+#endif // SERVER_HPP

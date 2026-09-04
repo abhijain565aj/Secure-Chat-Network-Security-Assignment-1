@@ -1,0 +1,162 @@
+#include "chat/message.hpp"
+#include "chat/packet_buffer.hpp"
+#include "utils/password.hpp"
+#include "protocol.hpp"
+#include <algorithm>
+#include <stdexcept>
+#include <utility>
+
+Message::Message() : timestamp(get_timestamp()) {}
+
+UserMessage::UserMessage(std::string _username, std::string _msg)
+    : UserMessage("", std::move(_username), std::move(_msg)) {}
+
+UserMessage::UserMessage(std::string _sender, std::string _username, std::string _msg)
+    : Message(), sender(std::move(_sender)), username(std::move(_username)), msg(std::move(_msg)) {
+        check_username(username);
+        if (msg.length() > MESSAGE_MAX_LENGTH) {
+            throw std::runtime_error("Message exceeds maximum length");
+        }
+    }
+
+LoginMessage::LoginMessage(std::string _username)
+    : Message(), username(_username) {
+        check_username(username);
+    }
+
+WhoMessage::WhoMessage() : Message() {}
+
+ServerMessage::ServerMessage(std::string _text)
+    : Message(), text(std::move(_text)) {
+    if (text.length() > MESSAGE_MAX_LENGTH)
+        throw std::runtime_error("Server message exceeds maximum length");
+}
+
+VectorMessage::VectorMessage(MessageType type, std::vector<uint8_t> values)
+    : Message(), values(std::move(values)), messageType(type) {}
+
+void VectorMessage::serialize(PacketBuffer& packet) const {
+    packet << values;
+}
+
+TwoVectorMessage::TwoVectorMessage(MessageType type, std::vector<uint8_t> first,
+                                   std::vector<uint8_t> second)
+    : Message(), first(std::move(first)), second(std::move(second)),
+      messageType(type) {}
+
+void TwoVectorMessage::serialize(PacketBuffer& packet) const {
+    packet << first << second;
+}
+
+void UserMessage::serialize(PacketBuffer& packet) const { packet << sender << username << msg; }
+
+std::unique_ptr<Message> UserMessage::deserialize(PacketBuffer& packet) {
+    std::string sender, username, message;
+    packet >> sender >> username >> message;
+    return std::make_unique<UserMessage>(std::move(sender), std::move(username), std::move(message));
+}
+
+void LoginMessage::serialize(PacketBuffer& packet) const { packet << username; }
+
+std::unique_ptr<Message> LoginMessage::deserialize(PacketBuffer& packet) {
+    std::string username;
+    packet >> username;
+    return std::make_unique<LoginMessage>(std::move(username));
+}
+
+void WhoMessage::serialize(PacketBuffer&) const {}
+
+std::unique_ptr<Message> WhoMessage::deserialize(PacketBuffer&) {
+    return std::make_unique<WhoMessage>();
+}
+
+void ServerMessage::serialize(PacketBuffer& packet) const { packet << text; }
+
+std::unique_ptr<Message> ServerMessage::deserialize(PacketBuffer& packet) {
+    std::string text;
+    packet >> text;
+    return std::make_unique<ServerMessage>(std::move(text));
+}
+
+DHParametersMessage::DHParametersMessage(const DHE::DHParameters& params)
+    : TwoVectorMessage(MessageType::DHParametersMsg,
+                       DHE::BIGNUMToBytes(params.get_p()),
+                       DHE::BIGNUMToBytes(params.get_g())) {}
+
+std::unique_ptr<Message> DHParametersMessage::deserialize(PacketBuffer& packet) {
+    std::vector<uint8_t> b, g;
+    packet >> b >> g;
+    return std::make_unique<DHParametersMessage>(
+        DHE::DHParameters(DHE::DHKey(DHE::BytesToBIGNUM(b)),
+                          DHE::DHKey(DHE::BytesToBIGNUM(g))));
+}
+
+DHKeyMessage::DHKeyMessage(BIGNUM* _public_key)
+    : VectorMessage(MessageType::DHKeyMsg, DHE::BIGNUMToBytes(_public_key)) {}
+
+DHKeyMessage::DHKeyMessage(std::vector<uint8_t> _public_key)
+    : VectorMessage(MessageType::DHKeyMsg, std::move(_public_key)) {}
+
+std::unique_ptr<Message> DHKeyMessage::deserialize(PacketBuffer& packet) {
+    std::vector<uint8_t> public_key;
+    packet >> public_key;
+    return std::make_unique<DHKeyMessage>(std::move(public_key));
+}
+
+CiphertextMsg::CiphertextMsg(const AES::Ciphertext& _ciphertext): Message(), ciphertext(std::move(_ciphertext)) {}
+
+void CiphertextMsg::serialize(PacketBuffer& packet) const {
+    packet << ciphertext.iv << ciphertext.ciphertext << ciphertext.tag;
+}
+
+std::unique_ptr<Message> CiphertextMsg::deserialize(PacketBuffer& packet) {
+    AES::Ciphertext ciphertext;
+    packet >> ciphertext.iv >> ciphertext.ciphertext >> ciphertext.tag;
+    return std::make_unique<CiphertextMsg>(std::move(ciphertext));
+}
+
+CiphertextMsg::CiphertextMsg(const Message& message, const DHE::AES_KEY& aes_key) {
+    ciphertext = AES::encrypt(aes_key, serialize_message(message));
+}
+
+std::unique_ptr<Message> CiphertextMsg::getMsg(const DHE::AES_KEY& aes_key) const {
+    auto decrypted = AES::decrypt(aes_key, ciphertext);
+    return deserialize_message(decrypted);
+}
+
+CertificateMessage::CertificateMessage(const std::vector<uint8_t>& certificate)
+    : VectorMessage(MessageType::CertificateMsg, certificate) {}
+
+BSignatureMessage::BSignatureMessage(std::vector<uint8_t> public_key,
+                                     std::vector<uint8_t> signature)
+    : TwoVectorMessage(MessageType::BSignatureMsg, std::move(public_key),
+                       std::move(signature)) {}
+
+std::unique_ptr<Message> BSignatureMessage::deserialize(PacketBuffer& packet) {
+    std::vector<uint8_t> public_key, signature;
+    packet >> public_key >> signature;
+    return std::make_unique<BSignatureMessage>(std::move(public_key),
+                                               std::move(signature));
+}
+
+std::unique_ptr<Message> CertificateMessage::deserialize(PacketBuffer& packet) {
+    std::vector<uint8_t> certificate;
+    packet >> certificate;
+    return std::make_unique<CertificateMessage>(std::move(certificate));
+}
+
+RAMessage::RAMessage(BIGNUM* public_key, std::array<unsigned char, 32> challenge)
+    : TwoVectorMessage(MessageType::RAMsg, DHE::BIGNUMToBytes(public_key),
+                       std::vector<uint8_t>(challenge.begin(), challenge.end())) {}
+
+std::unique_ptr<Message> RAMessage::deserialize(PacketBuffer& packet) {
+    std::vector<uint8_t> public_key;
+    std::vector<uint8_t> challenge_bytes;
+    packet >> public_key >> challenge_bytes;
+    if (challenge_bytes.size() != 32) {
+        throw std::runtime_error("Invalid handshake challenge size");
+    }
+    std::array<unsigned char, 32> challenge;
+    std::copy(challenge_bytes.begin(), challenge_bytes.end(), challenge.begin());
+    return std::make_unique<RAMessage>(DHE::BytesToBIGNUM(public_key), challenge);
+}
