@@ -31,6 +31,22 @@ ServerMessage::ServerMessage(std::string _text)
         throw std::runtime_error("Server message exceeds maximum length");
 }
 
+VectorMessage::VectorMessage(MessageType type, std::vector<uint8_t> values)
+    : Message(), values(std::move(values)), messageType(type) {}
+
+void VectorMessage::serialize(PacketBuffer& packet) const {
+    packet << values;
+}
+
+TwoVectorMessage::TwoVectorMessage(MessageType type, std::vector<uint8_t> first,
+                                   std::vector<uint8_t> second)
+    : Message(), first(std::move(first)), second(std::move(second)),
+      messageType(type) {}
+
+void TwoVectorMessage::serialize(PacketBuffer& packet) const {
+    packet << first << second;
+}
+
 void UserMessage::serialize(PacketBuffer& packet) const { packet << sender << username << msg; }
 
 std::unique_ptr<Message> UserMessage::deserialize(PacketBuffer& packet) {
@@ -62,29 +78,23 @@ std::unique_ptr<Message> ServerMessage::deserialize(PacketBuffer& packet) {
 }
 
 DHParametersMessage::DHParametersMessage(const DHE::DHParameters& params)
-    : Message(), b(DHE::BIGNUMToBytes(params.get_p())), g(DHE::BIGNUMToBytes(params.get_g())) {}
-
-void DHParametersMessage::serialize(PacketBuffer& packet) const {
-    packet << b << g;
-}
+    : TwoVectorMessage(MessageType::DHParametersMsg,
+                       DHE::BIGNUMToBytes(params.get_p()),
+                       DHE::BIGNUMToBytes(params.get_g())) {}
 
 std::unique_ptr<Message> DHParametersMessage::deserialize(PacketBuffer& packet) {
     std::vector<uint8_t> b, g;
     packet >> b >> g;
-    return std::make_unique<DHParametersMessage>(DHE::DHParameters(
-        DHE::DHKey(DHE::BytesToBIGNUM(b)),
-        DHE::DHKey(DHE::BytesToBIGNUM(g))));
+    return std::make_unique<DHParametersMessage>(
+        DHE::DHParameters(DHE::DHKey(DHE::BytesToBIGNUM(b)),
+                          DHE::DHKey(DHE::BytesToBIGNUM(g))));
 }
 
 DHKeyMessage::DHKeyMessage(BIGNUM* _public_key)
-    : Message(), public_key(DHE::BIGNUMToBytes(_public_key)) {}
+    : VectorMessage(MessageType::DHKeyMsg, DHE::BIGNUMToBytes(_public_key)) {}
 
 DHKeyMessage::DHKeyMessage(std::vector<uint8_t> _public_key)
-    : Message(), public_key(std::move(_public_key)) {}
-
-void DHKeyMessage::serialize(PacketBuffer& packet) const {
-    packet << public_key;
-}
+    : VectorMessage(MessageType::DHKeyMsg, std::move(_public_key)) {}
 
 std::unique_ptr<Message> DHKeyMessage::deserialize(PacketBuffer& packet) {
     std::vector<uint8_t> public_key;
@@ -114,10 +124,18 @@ std::unique_ptr<Message> CiphertextMsg::getMsg(const DHE::AES_KEY& aes_key) cons
 }
 
 CertificateMessage::CertificateMessage(const std::vector<uint8_t>& certificate)
-    : Message(), certificate(std::move(certificate)) {}
+    : VectorMessage(MessageType::CertificateMsg, certificate) {}
 
-void CertificateMessage::serialize(PacketBuffer& packet) const {
-    packet << certificate;
+BSignatureMessage::BSignatureMessage(std::vector<uint8_t> public_key,
+                                     std::vector<uint8_t> signature)
+    : TwoVectorMessage(MessageType::BSignatureMsg, std::move(public_key),
+                       std::move(signature)) {}
+
+std::unique_ptr<Message> BSignatureMessage::deserialize(PacketBuffer& packet) {
+    std::vector<uint8_t> public_key, signature;
+    packet >> public_key >> signature;
+    return std::make_unique<BSignatureMessage>(std::move(public_key),
+                                               std::move(signature));
 }
 
 std::unique_ptr<Message> CertificateMessage::deserialize(PacketBuffer& packet) {
@@ -127,11 +145,8 @@ std::unique_ptr<Message> CertificateMessage::deserialize(PacketBuffer& packet) {
 }
 
 RAMessage::RAMessage(BIGNUM* public_key, std::array<unsigned char, 32> challenge)
-    : Message(), public_key(DHE::BIGNUMToBytes(public_key)), challenge(challenge) {}
-
-void RAMessage::serialize(PacketBuffer& packet) const {
-    packet << public_key << challenge;
-}
+    : TwoVectorMessage(MessageType::RAMsg, DHE::BIGNUMToBytes(public_key),
+                       std::vector<uint8_t>(challenge.begin(), challenge.end())) {}
 
 std::unique_ptr<Message> RAMessage::deserialize(PacketBuffer& packet) {
     std::vector<uint8_t> public_key;

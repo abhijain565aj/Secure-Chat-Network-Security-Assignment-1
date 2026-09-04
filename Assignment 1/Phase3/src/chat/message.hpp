@@ -4,7 +4,7 @@
 #include <string>
 #include <cstdint>
 #include <memory>
-#include <memory>
+#include <vector>
 #include "utils/helpers.hpp"
 #include "crypto/dhe.hpp"
 #include "crypto/aes_gcm.hpp"
@@ -19,8 +19,9 @@ enum class MessageType : uint8_t {
     DHParametersMsg = 5,
     DHKeyMsg = 6,
     RAMsg = 7,
-    CertificateMsg = 7,
-    Ciphertext = 8
+    CertificateMsg = 8,
+    BSignatureMsg = 9,
+    Ciphertext = 10
 };
 
 class Message{
@@ -75,53 +76,78 @@ public:
     const std::string& get_text() const { return text; }
 };
 
-class DHParametersMessage : public Message {
-    std::vector<uint8_t> b;
-    std::vector<uint8_t> g;
+class VectorMessage : public Message {
+protected:
+    std::vector<uint8_t> values;
+    const MessageType messageType;
+
+    VectorMessage(MessageType type, std::vector<uint8_t> values);
+    void serialize(PacketBuffer& packet) const override;
+
+public:
+    MessageType type() const override { return messageType; }
+    const std::vector<uint8_t>& get_values() const { return values; }
+};
+
+class TwoVectorMessage : public Message {
+protected:
+    std::vector<uint8_t> first;
+    std::vector<uint8_t> second;
+    const MessageType messageType;
+
+    TwoVectorMessage(MessageType type, std::vector<uint8_t> first,
+                     std::vector<uint8_t> second);
+    void serialize(PacketBuffer& packet) const override;
+
+public:
+    MessageType type() const override { return messageType; }
+    const std::vector<uint8_t>& get_first() const { return first; }
+    const std::vector<uint8_t>& get_second() const { return second; }
+};
+
+class DHParametersMessage : public TwoVectorMessage {
 public:
     explicit DHParametersMessage(const DHE::DHParameters& params);
-    MessageType type() const override { return MessageType::DHParametersMsg; }
-    void serialize(PacketBuffer& packet) const override;
     static std::unique_ptr<Message> deserialize(PacketBuffer& packet);
     DHE::DHParameters get_parameters() const {
         return DHE::DHParameters(
-            DHE::DHKey(DHE::BytesToBIGNUM(b)),
-            DHE::DHKey(DHE::BytesToBIGNUM(g)));
+            DHE::DHKey(DHE::BytesToBIGNUM(first)),
+            DHE::DHKey(DHE::BytesToBIGNUM(second)));
     }
 };
 
-class DHKeyMessage : public Message {
-    std::vector<uint8_t> public_key;
+class DHKeyMessage : public VectorMessage {
 public:
     explicit DHKeyMessage(BIGNUM* public_key);
     explicit DHKeyMessage(std::vector<uint8_t> public_key);
-    MessageType type() const override { return MessageType::DHKeyMsg; }
-    void serialize(PacketBuffer& packet) const override;
     static std::unique_ptr<Message> deserialize(PacketBuffer& packet);
-    DHE::DHKey get_public_key() const { return DHE::DHKey(DHE::BytesToBIGNUM(public_key)); }
+    DHE::DHKey get_public_key() const { return DHE::DHKey(DHE::BytesToBIGNUM(values)); }
 };
 
-class RAMessage : public Message {
-    std::vector<uint8_t> public_key; // A
-    std::array<uint8_t, 32> challenge; // R
+class RAMessage : public TwoVectorMessage {
 public:
     explicit RAMessage(BIGNUM* public_key, std::array<unsigned char, 32> challenge);
-    MessageType type() const override { return MessageType::RAMsg; }
-    void serialize(PacketBuffer& packet) const override;
     static std::unique_ptr<Message> deserialize(PacketBuffer& packet);
-    DHE::DHKey get_public_key() const { return DHE::DHKey(DHE::BytesToBIGNUM(public_key)); }
-    const std::array<unsigned char, 32>& get_challenge() const { return challenge; }
-    const std::vector<uint8_t>& get_public_key_bytes() const { return public_key; }
+    DHE::DHKey get_public_key() const { return DHE::DHKey(DHE::BytesToBIGNUM(first)); }
+    const std::vector<uint8_t>& get_challenge() const { return second; }
+    const std::vector<uint8_t>& get_public_key_bytes() const { return first; }
 };
-class CertificateMessage : public Message {
-    std::vector<uint8_t> certificate;
+class CertificateMessage : public VectorMessage {
 public:
     explicit CertificateMessage(const std::vector<uint8_t>& certificate);
-    MessageType type() const override { return MessageType::CertificateMsg; }
-    void serialize(PacketBuffer& packet) const override;
     static std::unique_ptr<Message> deserialize(PacketBuffer& packet);
-    const std::vector<uint8_t>& get_certificate() const { return certificate; }
+    const std::vector<uint8_t>& get_certificate() const { return values; }
 };
+
+class BSignatureMessage : public TwoVectorMessage {
+public:
+    BSignatureMessage(std::vector<uint8_t> public_key,
+                      std::vector<uint8_t> signature);
+    static std::unique_ptr<Message> deserialize(PacketBuffer& packet);
+    const std::vector<uint8_t>& get_public_key_bytes() const { return first; }
+    const std::vector<uint8_t>& get_signature() const { return second; }
+};
+
 class CiphertextMsg : public Message {
     AES::Ciphertext ciphertext;
 public:
