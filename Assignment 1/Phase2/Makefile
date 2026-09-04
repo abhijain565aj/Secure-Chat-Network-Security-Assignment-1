@@ -17,36 +17,51 @@ BUILD_DIR := build
 
 CLIENT_SRCS := $(wildcard src/client/*.cpp)
 SERVER_SRCS := $(wildcard src/server/*.cpp)
+PROXY_SRCS := $(wildcard src/proxy/*.cpp)
 COMMON_SRCS := $(wildcard src/utils/*.cpp) $(wildcard src/chat/*.cpp) $(wildcard src/crypto/*.cpp)
 
 CLIENT_OBJS := $(CLIENT_SRCS:src/%.cpp=$(BUILD_DIR)/%.o)
 SERVER_OBJS := $(SERVER_SRCS:src/%.cpp=$(BUILD_DIR)/%.o)
+PROXY_OBJS := $(PROXY_SRCS:src/%.cpp=$(BUILD_DIR)/%.o)
 COMMON_OBJS := $(COMMON_SRCS:src/%.cpp=$(BUILD_DIR)/%.o)
 
 RUN_CLIENT := $(BUILD_DIR)/run_client
 RUN_SERVER := $(BUILD_DIR)/run_server
+RUN_PROXY := $(BUILD_DIR)/run_proxy
 
 DEPS := $(CLIENT_OBJS:.o=.d) \
         $(SERVER_OBJS:.o=.d) \
+		$(PROXY_OBJS:.o=.d) \
         $(COMMON_OBJS:.o=.d)
 
-IP := "127.0.0.1"
-PORT := 12345
+SERVER_IP := "127.0.0.1"
+SERVER_PORT := 12345
+PROXY_IP := "127.0.0.1"
+PROXY_PORT := 12346
 
-.PHONY: all client server clean
+.PHONY: all client server proxy clean
 
-all: $(RUN_CLIENT) $(RUN_SERVER)
+all: $(RUN_CLIENT) $(RUN_SERVER) $(RUN_PROXY)
 
 client: $(RUN_CLIENT)
-	./$(RUN_CLIENT) $(IP) $(PORT)
+	./$(RUN_CLIENT) $(SERVER_IP) $(SERVER_PORT)
 
 server: $(RUN_SERVER)
-	./$(RUN_SERVER) $(PORT)
+	./$(RUN_SERVER) $(SERVER_PORT)
+
+proxy: $(RUN_PROXY)
+	./$(RUN_PROXY) $(PROXY_PORT) $(SERVER_IP) $(SERVER_PORT)
+
+proxy-client: $(RUN_CLIENT)
+	./$(RUN_CLIENT) $(PROXY_IP) $(PROXY_PORT)
 
 $(RUN_CLIENT): $(CLIENT_OBJS) $(COMMON_OBJS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) $(LDFLAGS) -o $@
 
 $(RUN_SERVER): $(SERVER_OBJS) $(COMMON_OBJS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) $(LDFLAGS) -o $@
+
+$(RUN_PROXY): $(PROXY_OBJS) $(COMMON_OBJS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) $(LDFLAGS) -o $@
 
 $(BUILD_DIR)/%.o: src/%.cpp
