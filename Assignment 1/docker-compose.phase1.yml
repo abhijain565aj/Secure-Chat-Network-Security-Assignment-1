@@ -29,6 +29,8 @@ services:
         ipv4_address: 172.28.0.11
     stdin_open: true
     tty: true
+    environment:
+      TERM: xterm-256color
     depends_on:
       - server
     command: ["./build/run_client", "172.28.0.10", "12345"]
@@ -43,6 +45,8 @@ services:
         ipv4_address: 172.28.0.12
     stdin_open: true
     tty: true
+    environment:
+      TERM: xterm-256color
     depends_on:
       - server
     command: ["./build/run_client", "172.28.0.10", "12345"]

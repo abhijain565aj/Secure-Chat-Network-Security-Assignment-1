@@ -1,7 +1,9 @@
 # Assignment-level build and process launcher.
 #
-# Launch commands run in the foreground, but record their PID in .run/ while
-# active. Start each one in a separate terminal.
+# Launch commands run in the foreground and record their PID in .run/ while
+# active.  They must not be backgrounded: a non-interactive make shell assigns
+# /dev/null to a background job's stdin, which prevents ncurses from reading
+# keystrokes. Start each service in a separate terminal.
 
 SHELL := /bin/sh
 
@@ -37,6 +39,13 @@ phase4: phase4-build
 phase5: phase5-build
 	@printf '%s\n' 'Phase 5 is built. Start it with: make phase5-server  (then make phase5-client1 in another terminal)'
 
+# Convenience aliases for the first client in each phase.
+phase1-client: phase1-client1
+phase2-client: phase2-client1
+phase3-client: phase3-client1
+phase4-client: phase4-client1
+phase5-client: phase5-client1
+
 phase1-build:
 	$(MAKE) -C Phase1 all
 phase2-build:
@@ -63,11 +72,9 @@ PHASE$(1)_STOPS += stop-phase$(1)-$(2)
 phase$(1)-$(2): stop-phase$(1)-$(2) phase$(1)-build
 	@mkdir -p "$(RUN_DIR)/phase$(1)"
 	@pidfile="$(RUN_DIR)/phase$(1)/$(2).pid"; \
-	trap 'rm -f "$$$$pidfile"' EXIT INT TERM; \
-	( cd "Phase$(1)" && exec $(3) ) & pid=$$$$!; \
-	echo "$$$$pid" > "$$$$pidfile"; \
-	echo "Started phase $(1) $(2) (PID $$$$pid). Press Ctrl-C or run make stop-phase$(1)-$(2)."; \
-	wait "$$$$pid"
+	echo "$$$$$$$$" > "$$$$pidfile"; \
+	echo "Started phase $(1) $(2) (PID $$$$$$$$). Press Ctrl-C or run make stop-phase$(1)-$(2)."; \
+	cd "Phase$(1)" && exec $(3)
 
 stop-phase$(1)-$(2):
 	@pidfile="$(RUN_DIR)/phase$(1)/$(2).pid"; \

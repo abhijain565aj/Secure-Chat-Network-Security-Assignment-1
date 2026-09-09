@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+ENV TERM=xterm-256color
 COPY . /app
 
 # Build only; `make client` would also try to run the client during image build.
