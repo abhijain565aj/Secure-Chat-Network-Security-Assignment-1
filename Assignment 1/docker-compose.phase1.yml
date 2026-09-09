@@ -1,0 +1,55 @@
+# Phase 1 -- Baseline Chat (no encryption, no proxy)
+#
+# Run from the "Assignment 1" project root:
+#   docker compose -f docker-compose.phase1.yml up --build -d
+#   docker attach chat-client1
+#   docker attach chat-client2
+#   docker compose -f docker-compose.phase1.yml down
+
+services:
+  server:
+    build:
+      context: ./Phase1
+      dockerfile: ../docker/server.Dockerfile
+    container_name: chat-server
+    networks:
+      chatnet:
+        ipv4_address: 172.28.0.10
+    command: ["./build/run_server", "12345"]
+    ports:
+      - "12345:12345"
+
+  client1:
+    build:
+      context: ./Phase1
+      dockerfile: ../docker/client.Dockerfile
+    container_name: chat-client1
+    networks:
+      chatnet:
+        ipv4_address: 172.28.0.11
+    stdin_open: true
+    tty: true
+    depends_on:
+      - server
+    command: ["./build/run_client", "172.28.0.10", "12345"]
+
+  client2:
+    build:
+      context: ./Phase1
+      dockerfile: ../docker/client.Dockerfile
+    container_name: chat-client2
+    networks:
+      chatnet:
+        ipv4_address: 172.28.0.12
+    stdin_open: true
+    tty: true
+    depends_on:
+      - server
+    command: ["./build/run_client", "172.28.0.10", "12345"]
+
+networks:
+  chatnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24

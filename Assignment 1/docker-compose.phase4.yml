@@ -1,0 +1,86 @@
+# Phase 4 -- End-to-End Encryption Between Clients
+#
+# Setup:
+#   docker compose -f docker-compose.phase4.yml up --build -d
+#   docker attach chat-client1   # e.g. /login alice
+#   docker attach chat-client2   # e.g. /login bob
+#
+# Establish an E2E session (from alice's session):
+#   /e2e bob
+#   -> both clients print a key fingerprint; confirm they match
+#
+# Verify the server cannot read E2E content:
+#   docker logs chat-server
+#   -> messages BEFORE "/e2e bob" appear decrypted/plaintext-ish in the log
+#      (server terminates the client-server layer)
+#   -> messages AFTER "/e2e bob" appear as opaque binary/tagged blobs
+#      (__E2E_MSG__) which the server cannot decrypt
+#
+# The three Phase 3 proxy attacks still apply unchanged here (server auth
+# is untouched) -- see docker-compose.phase3.yml comments for the commands.
+# Even a successful "normal" relay through mallory only exposes the outer
+# client-server ciphertext; mallory never holds the inner E2E key.
+#
+#   docker compose -f docker-compose.phase4.yml down
+
+services:
+  server:
+    build:
+      context: ./Phase4
+      dockerfile: ../docker/server.Dockerfile
+    container_name: chat-server
+    networks:
+      chatnet:
+        ipv4_address: 172.28.0.10
+    command: ["./build/run_server", "12345", "build/certs"]
+    ports:
+      - "12345:12345"
+
+  client1:
+    build:
+      context: ./Phase4
+      dockerfile: ../docker/client.Dockerfile
+    container_name: chat-client1
+    networks:
+      chatnet:
+        ipv4_address: 172.28.0.11
+    stdin_open: true
+    tty: true
+    depends_on:
+      - server
+    command: ["./build/run_client", "172.28.0.10", "12345", "build/certs"]
+
+  client2:
+    build:
+      context: ./Phase4
+      dockerfile: ../docker/client.Dockerfile
+    container_name: chat-client2
+    networks:
+      chatnet:
+        ipv4_address: 172.28.0.12
+    stdin_open: true
+    tty: true
+    depends_on:
+      - server
+    command: ["./build/run_client", "172.28.0.10", "12345", "build/certs"]
+
+  mallory:
+    build:
+      context: ./Phase4
+      dockerfile: ../docker/mallory.Dockerfile
+    container_name: chat-mallory
+    networks:
+      chatnet:
+        ipv4_address: 172.28.0.13
+    stdin_open: true
+    tty: true
+    depends_on:
+      - server
+    command: ["sleep", "infinity"]
+
+networks:
+  chatnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24

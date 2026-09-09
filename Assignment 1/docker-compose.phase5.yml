@@ -1,0 +1,79 @@
+# Phase 5 -- Forward Secrecy (automatic 60s E2E key rotation)
+#
+# Setup:
+#   docker compose -f docker-compose.phase5.yml up --build -d
+#   docker attach chat-client1   # e.g. /login alice
+#   docker attach chat-client2   # e.g. /login bob
+#
+# Establish E2E and watch rotations:
+#   /e2e bob
+#   -> keep both sessions open/chatting for >= 2-3 minutes
+#   -> each client logs a new truncated key fingerprint every ~60s
+#   -> confirm both clients show the SAME fingerprint after each rotation
+#   -> send a message right before/after a rotation boundary; both should
+#      still decrypt correctly (old key stays valid during the brief
+#      rekey handshake)
+#
+#   docker compose -f docker-compose.phase5.yml down
+
+services:
+  server:
+    build:
+      context: ./Phase5
+      dockerfile: ../docker/server.Dockerfile
+    container_name: chat-server
+    networks:
+      chatnet:
+        ipv4_address: 172.28.0.10
+    command: ["./build/run_server", "12345", "build/certs"]
+    ports:
+      - "12345:12345"
+
+  client1:
+    build:
+      context: ./Phase5
+      dockerfile: ../docker/client.Dockerfile
+    container_name: chat-client1
+    networks:
+      chatnet:
+        ipv4_address: 172.28.0.11
+    stdin_open: true
+    tty: true
+    depends_on:
+      - server
+    command: ["./build/run_client", "172.28.0.10", "12345", "build/certs"]
+
+  client2:
+    build:
+      context: ./Phase5
+      dockerfile: ../docker/client.Dockerfile
+    container_name: chat-client2
+    networks:
+      chatnet:
+        ipv4_address: 172.28.0.12
+    stdin_open: true
+    tty: true
+    depends_on:
+      - server
+    command: ["./build/run_client", "172.28.0.10", "12345", "build/certs"]
+
+  mallory:
+    build:
+      context: ./Phase5
+      dockerfile: ../docker/mallory.Dockerfile
+    container_name: chat-mallory
+    networks:
+      chatnet:
+        ipv4_address: 172.28.0.13
+    stdin_open: true
+    tty: true
+    depends_on:
+      - server
+    command: ["sleep", "infinity"]
+
+networks:
+  chatnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24

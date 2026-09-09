@@ -1,0 +1,120 @@
+# Phase 3 -- Server Authentication via PKI
+#
+# Normal chat (cert validation + proof-of-possession happen automatically):
+#   docker compose -f docker-compose.phase3.yml up --build -d
+#   docker attach chat-client1
+#   docker attach chat-client2
+#
+# Attack 1: fake certificate (self-signed, untrusted CA) -- should be
+# REJECTED by the client during X.509 chain validation, before any DH:
+#   docker compose -f docker-compose.phase3.yml exec -d mallory \
+#       ./build/run_proxy fake 12347 172.28.0.10 12345 build/proxy-certs
+#   docker compose -f docker-compose.phase3.yml exec client1 \
+#       ./build/run_client 172.28.0.13 12347 build/certs
+#
+# Attack 2: stolen certificate (real cert, no matching private key) --
+# passes cert validation but FAILS proof-of-possession (signature check):
+#   docker compose -f docker-compose.phase3.yml exec -d mallory \
+#       ./build/run_proxy thief 12348 172.28.0.10 12345 build/certs
+#   docker compose -f docker-compose.phase3.yml exec client1 \
+#       ./build/run_client 172.28.0.13 12348 build/certs
+#
+# Attack 3: pure relay (no impersonation) -- SUCCEEDS but mallory only ever
+# sees opaque ciphertext, since the genuine cert/signature pass through:
+#   docker compose -f docker-compose.phase3.yml exec -d mallory \
+#       ./build/run_proxy normal 12346 172.28.0.10 12345
+#   docker compose -f docker-compose.phase3.yml exec client1 \
+#       ./build/run_client 172.28.0.13 12346 build/certs
+#
+# Attack 4 (optional, "no certificate at all"): use the --profile legacy
+# service below, which runs the Phase 2 proxy binary (no cert support)
+# against the Phase 3 server. A Phase 3 client pointed at it should abort
+# before any DH exchange because no certificate is ever presented:
+#   docker compose -f docker-compose.phase3.yml --profile legacy up --build -d mallory-legacy
+#   docker compose -f docker-compose.phase3.yml exec -d mallory-legacy \
+#       ./build/run_proxy 12349 172.28.0.10 12345
+#   docker compose -f docker-compose.phase3.yml exec client1 \
+#       ./build/run_client 172.28.0.14 12349 build/certs
+#
+#   docker compose -f docker-compose.phase3.yml down
+
+services:
+  server:
+    build:
+      context: ./Phase3
+      dockerfile: ../docker/server.Dockerfile
+    container_name: chat-server
+    networks:
+      chatnet:
+        ipv4_address: 172.28.0.10
+    command: ["./build/run_server", "12345", "build/certs"]
+    ports:
+      - "12345:12345"
+
+  client1:
+    build:
+      context: ./Phase3
+      dockerfile: ../docker/client.Dockerfile
+    container_name: chat-client1
+    networks:
+      chatnet:
+        ipv4_address: 172.28.0.11
+    stdin_open: true
+    tty: true
+    depends_on:
+      - server
+    command: ["./build/run_client", "172.28.0.10", "12345", "build/certs"]
+
+  client2:
+    build:
+      context: ./Phase3
+      dockerfile: ../docker/client.Dockerfile
+    container_name: chat-client2
+    networks:
+      chatnet:
+        ipv4_address: 172.28.0.12
+    stdin_open: true
+    tty: true
+    depends_on:
+      - server
+    command: ["./build/run_client", "172.28.0.10", "12345", "build/certs"]
+
+  mallory:
+    build:
+      context: ./Phase3
+      dockerfile: ../docker/mallory.Dockerfile
+    container_name: chat-mallory
+    networks:
+      chatnet:
+        ipv4_address: 172.28.0.13
+    stdin_open: true
+    tty: true
+    depends_on:
+      - server
+    command: ["sleep", "infinity"]
+
+  # Optional: only needed for the "no certificate at all" attack test.
+  # Uses the Phase 2 proxy binary (which has no certificate support) so a
+  # Phase 3 client connecting to it aborts before completing the handshake.
+  # Start explicitly with: --profile legacy
+  mallory-legacy:
+    profiles: ["legacy"]
+    build:
+      context: ./Phase2
+      dockerfile: ../docker/mallory.Dockerfile
+    container_name: chat-mallory-legacy
+    networks:
+      chatnet:
+        ipv4_address: 172.28.0.14
+    stdin_open: true
+    tty: true
+    depends_on:
+      - server
+    command: ["sleep", "infinity"]
+
+networks:
+  chatnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
